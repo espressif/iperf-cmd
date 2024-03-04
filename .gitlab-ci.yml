@@ -16,6 +16,15 @@ variables:
   IDF_SKIP_CHECK_SUBMODULES: 1
   IDF_CI_BUILD: "1"
 
+include:
+  - project: espressif/shared-ci-dangerjs
+    ref: master
+    file: danger.yaml
+run-danger-mr-linter:
+  stage: pre-check
+  tags:
+    - internet
+
 pre_commit_check:
   stage: pre-check
   image: ${GITLAB_DOCKER_REGISTRY}/qa/dockerfiles/qa-python-env:2
