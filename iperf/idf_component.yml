@@ -1,0 +1,9 @@
+version: "0.0.1"
+description: Iperf Core Engine
+url: https://github.com/espressif/iperf-cmd/tree/master/iperf
+repository: https://github.com/espressif/iperf-cmd.git
+documentation: https://iperf.fr/iperf-doc.php
+issues: https://github.com/espressif/iperf-cmd/issues
+license: Apache-2.0
+dependencies:
+  idf: ">=4.3"

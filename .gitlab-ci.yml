@@ -1,0 +1,60 @@
+stages:
+  - pre-check
+  - build
+  - publish
+
+workflow:
+  rules:
+    # Disable those non-protected push triggered pipelines
+    - if: '$CI_COMMIT_REF_NAME != "main" && $CI_COMMIT_TAG !~ /^v\d+\.\d+(\.\d+)?($|-)/ && $CI_PIPELINE_SOURCE == "push"'
+      when: never
+    - when: always
+
+variables:
+  GIT_STRATEGY: clone
+  GIT_DEPTH: 1
+  IDF_SKIP_CHECK_SUBMODULES: 1
+  IDF_CI_BUILD: "1"
+
+pre_commit_check:
+  stage: pre-check
+  image: ${GITLAB_DOCKER_REGISTRY}/qa/dockerfiles/qa-python-env:2
+  script:
+    - pre-commit run --all-files
+  tags:
+    - build
+    - internet
+
+build_iperf:
+  stage: build
+  rules:
+    - when: on_success
+  image: ${ESP_IMG}
+  parallel:
+    matrix:
+      - ESP_IMG: espressif/idf:release-v4.4
+      - ESP_IMG: espressif/idf:release-v5.0
+      - ESP_IMG: espressif/idf:release-v5.1
+      - ESP_IMG: espressif/idf:release-v5.2
+      - ESP_IMG: espressif/idf:latest
+  script:
+    - pip install idf-build-apps
+    - idf-build-apps build -p apps/iperf --target=all --manifest-file=apps/.build_rules.yml --build-dir build_@t
+  tags:
+    - build
+    - internet
+
+# idf-build-apps 2.0 do not support python 3.6
+build_iperf_v43:
+  stage: build
+  image: espressif/idf:v4.3.7
+  rules:
+    - when: on_success
+  variables:
+    LC_ALL: C.UTF-8
+  script:
+    - pip install idf-build-apps\<2 packaging\<22 idf-component-manager==1.4.0
+    - idf-build-apps build -p apps/iperf --target all --build-dir build_@t
+  tags:
+    - build
+    - internet
