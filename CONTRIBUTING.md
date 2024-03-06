@@ -14,6 +14,10 @@ Welcome to the iperf-cmd project! We appreciate your interest in contributing. W
     pip install pre-commit
     pre-commit install-hooks
     pre-commit install --hook-type commit-msg --hook-type pre-push
+
+    # optional for doxygen-api-md
+    sudo apt install doxygen
+    pip install esp-doxybook
     ```
 
 - **Commit Message Format:**

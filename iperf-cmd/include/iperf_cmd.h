@@ -11,7 +11,7 @@ extern "C" {
 #endif
 
 /**
- * @brief Registers the iperf commands.
+ * @brief Registers console commands: iperf.
  *
  * @return ESP_OK on success
  */

@@ -6,7 +6,9 @@ repos:
     rev: v4.5.0
     hooks:
       - id: trailing-whitespace                          # Removes trailing whitespaces from lines
+        exclude: 'api\.md$'
       - id: end-of-file-fixer                            # Ensures files end with a newline
+        exclude: 'api\.md$'
       - id: check-executables-have-shebangs              # Checks executables have a proper shebang
       - id: mixed-line-ending                            # Detects mixed line endings (CRLF/LF)
         args: ['-f=lf']                                  # Forces files to use LF line endings
@@ -53,3 +55,13 @@ repos:
       - id: codespell # Code spell checker
         args: ["--write-changes"]
         additional_dependencies: [tomli]
+
+  - repo: local
+    hooks:
+      - id: doxygen-api-md
+        name: Doxygen api md
+        entry: tools/doxygen_api_md.py
+        language: python
+        files: 'Doxyfile$|.*\.h$|api\.md'
+        pass_filenames: false
+        additional_dependencies: [esp-doxybook]
