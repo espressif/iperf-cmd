@@ -1,0 +1,4 @@
+apps/iperf:
+  disable:
+    - if: SOC_WIFI_SUPPORTED != 1
+    - if: IDF_TARGET != "esp32" and CONFIG_NAME != "default"

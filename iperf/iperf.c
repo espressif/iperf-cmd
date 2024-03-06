@@ -7,6 +7,7 @@
 #include <string.h>
 #include <sys/param.h>
 #include <sys/socket.h>
+#include "sdkconfig.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 /* esp_check.h was added in idf v4.4 */
@@ -19,6 +20,12 @@
 
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 3, 0)
 #include "esp_rom_sys.h"
+#endif
+
+#ifdef CONFIG_FREERTOS_NUMBER_OF_CORES /* idf v5.3 */
+#define NUMBER_OF_CORES CONFIG_FREERTOS_NUMBER_OF_CORES
+#else
+#define NUMBER_OF_CORES portNUM_PROCESSORS
 #endif
 
 #define TAG "iperf"
@@ -87,14 +94,14 @@ static void iperf_report_task(void *arg)
     while (!s_iperf_ctrl.finish) {
         vTaskDelay(delay_interval);
         switch (s_iperf_ctrl.cfg.format) {
-        case IPERF_FORMAT_KBITS:
+        case KBITS_PER_SEC:
             actual_bandwidth = (s_iperf_ctrl.actual_len / 1024.0 * 8) / interval;
             format_ch = 'K';
             break;
-        case IPERF_FORMAT_MBITS:
-            actual_bandwidth = (s_iperf_ctrl.actual_len / 1024.0 / 1024.0 * 8) / interval;
-            break;
+        case MBITS_PER_SEC:
+            /* pass through */
         default:
+            actual_bandwidth = (s_iperf_ctrl.actual_len / 1024.0 / 1024.0 * 8) / interval;
             break;
         }
         printf("%2d.0-%2d.0 sec  %.2f %cbits/sec\n", cur, cur + interval, actual_bandwidth, format_ch);
@@ -116,7 +123,7 @@ static esp_err_t iperf_start_report(void)
 {
     int ret;
 
-    ret = xTaskCreatePinnedToCore(iperf_report_task, IPERF_REPORT_TASK_NAME, IPERF_REPORT_TASK_STACK, NULL, IPERF_REPORT_TASK_PRIORITY, NULL, portNUM_PROCESSORS - 1);
+    ret = xTaskCreatePinnedToCore(iperf_report_task, IPERF_REPORT_TASK_NAME, IPERF_REPORT_TASK_STACK, NULL, IPERF_REPORT_TASK_PRIORITY, NULL, NUMBER_OF_CORES - 1);
 
     if (ret != pdPASS) {
         ESP_LOGE(TAG, "create task %s failed", IPERF_REPORT_TASK_NAME);
@@ -132,7 +139,11 @@ IRAM_ATTR static void socket_recv(int recv_socket, struct sockaddr_storage liste
     uint8_t *buffer;
     int want_recv = 0;
     int actual_recv = 0;
+#ifdef CONFIG_LWIP_IPV6
     socklen_t socklen = (s_iperf_ctrl.cfg.type == IPERF_IP_TYPE_IPV6) ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in);
+#else
+    socklen_t socklen = sizeof(struct sockaddr_in);
+#endif
     const char *error_log = (type == IPERF_TRANS_TYPE_TCP) ? "tcp server recv" : "udp server recv";
 
     buffer = s_iperf_ctrl.buffer;
@@ -156,8 +167,8 @@ IRAM_ATTR static void socket_recv(int recv_socket, struct sockaddr_storage liste
 IRAM_ATTR static void socket_send(int send_socket, struct sockaddr_storage dest_addr, uint8_t type, int bw_lim)
 {
     uint8_t *buffer;
-    int32_t *pkt_id_p;
-    int32_t pkt_cnt = 0;
+    uint32_t *pkt_id_p;
+    uint32_t pkt_cnt = 0;
     int actual_send = 0;
     int want_send = 0;
     int period_us = -1;
@@ -167,11 +178,15 @@ IRAM_ATTR static void socket_send(int send_socket, struct sockaddr_storage dest_
     int err = 0;
     struct timeval ts_now;
 
+#ifdef CONFIG_LWIP_IPV6
     const socklen_t socklen = (s_iperf_ctrl.cfg.type == IPERF_IP_TYPE_IPV6) ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in);
+#else
+    const socklen_t socklen = sizeof(struct sockaddr_in);
+#endif
     const char *error_log = (type == IPERF_TRANS_TYPE_TCP) ? "tcp client send" : "udp client send";
 
     buffer = s_iperf_ctrl.buffer;
-    pkt_id_p = (int32_t *)s_iperf_ctrl.buffer;
+    pkt_id_p = (uint32_t *)s_iperf_ctrl.buffer;
     want_send = s_iperf_ctrl.buffer_len;
     iperf_start_report();
 
@@ -196,12 +211,7 @@ IRAM_ATTR static void socket_send(int send_socket, struct sockaddr_storage dest_
             }
             prev_time = send_time;
         }
-        *pkt_id_p = htonl(pkt_cnt); // datagrams need to be sequentially numbered
-        if (pkt_cnt >= INT32_MAX) {
-            pkt_cnt = 0;
-        } else {
-            pkt_cnt++;
-        }
+        *pkt_id_p = htonl(pkt_cnt++); // datagrams need to be sequentially numbered
         actual_send = sendto(send_socket, buffer, want_send, 0, (struct sockaddr *)&dest_addr, socklen);
         if (actual_send != want_send) {
             if (type == IPERF_TRANS_TYPE_UDP) {
@@ -239,11 +249,14 @@ static esp_err_t iperf_run_tcp_server(void)
     struct timeval timeout = { 0 };
     socklen_t addr_len = sizeof(struct sockaddr);
     struct sockaddr_storage listen_addr = { 0 };
-    struct sockaddr_in6 listen_addr6 = { 0 };
     struct sockaddr_in listen_addr4 = { 0 };
-
+#ifdef CONFIG_LWIP_IPV6
+    struct sockaddr_in6 listen_addr6 = { 0 };
     ESP_GOTO_ON_FALSE((s_iperf_ctrl.cfg.type == IPERF_IP_TYPE_IPV6 || s_iperf_ctrl.cfg.type == IPERF_IP_TYPE_IPV4), ESP_FAIL, exit, TAG, "Invalid AF types");
-
+#else
+    ESP_GOTO_ON_FALSE((s_iperf_ctrl.cfg.type == IPERF_IP_TYPE_IPV4), ESP_FAIL, exit, TAG, "Invalid AF types");
+#endif
+#ifdef CONFIG_LWIP_IPV6
     if (s_iperf_ctrl.cfg.type == IPERF_IP_TYPE_IPV6) {
         // The TCP server listen at the address "::", which means all addresses can be listened to.
         inet6_aton("::", &listen_addr6.sin6_addr);
@@ -263,11 +276,10 @@ static esp_err_t iperf_run_tcp_server(void)
         err = listen(tcp_listen_socket, 1);
         ESP_GOTO_ON_FALSE((err == 0), ESP_FAIL, exit, TAG, "Error occurred during listen: errno %d", errno);
 
-        timeout.tv_sec = IPERF_SOCKET_RX_TIMEOUT;
-        setsockopt(tcp_listen_socket, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
-
         memcpy(&listen_addr, &listen_addr6, sizeof(listen_addr6));
-    } else if (s_iperf_ctrl.cfg.type == IPERF_IP_TYPE_IPV4) {
+    } else
+#endif
+    if (s_iperf_ctrl.cfg.type == IPERF_IP_TYPE_IPV4) {
         listen_addr4.sin_family = AF_INET;
         listen_addr4.sin_port = htons(s_iperf_ctrl.cfg.sport);
         listen_addr4.sin_addr.s_addr = s_iperf_ctrl.cfg.source_ip4;
@@ -286,10 +298,12 @@ static esp_err_t iperf_run_tcp_server(void)
         ESP_GOTO_ON_FALSE((err == 0), ESP_FAIL, exit, TAG, "Error occurred during listen: errno %d", errno);
         memcpy(&listen_addr, &listen_addr4, sizeof(listen_addr4));
     }
+    timeout.tv_sec = IPERF_SOCKET_RX_TIMEOUT;
+    setsockopt(tcp_listen_socket, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
 
     client_socket = accept(tcp_listen_socket, (struct sockaddr *)&remote_addr, &addr_len);
     ESP_GOTO_ON_FALSE((client_socket >= 0), ESP_FAIL, exit, TAG, "Unable to accept connection: errno %d", errno);
-    ESP_LOGI(TAG, "accept: %s,%d\n", inet_ntoa(remote_addr.sin_addr), htons(remote_addr.sin_port));
+    ESP_LOGI(TAG, "accept: %s,%d", inet_ntoa(remote_addr.sin_addr), htons(remote_addr.sin_port));
 
     timeout.tv_sec = IPERF_SOCKET_RX_TIMEOUT;
     setsockopt(client_socket, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
@@ -322,12 +336,16 @@ static esp_err_t iperf_run_tcp_client(void)
     int client_socket = -1;
     int err = 0;
     esp_err_t ret = ESP_OK;
+    struct timeval timeout = { 0 };
     struct sockaddr_storage dest_addr = { 0 };
-    struct sockaddr_in6 dest_addr6 = { 0 };
     struct sockaddr_in dest_addr4 = { 0 };
-
+#ifdef CONFIG_LWIP_IPV6
+    struct sockaddr_in6 dest_addr6 = { 0 };
     ESP_GOTO_ON_FALSE((s_iperf_ctrl.cfg.type == IPERF_IP_TYPE_IPV6 || s_iperf_ctrl.cfg.type == IPERF_IP_TYPE_IPV4), ESP_FAIL, exit, TAG, "Invalid AF types");
-
+#else
+    ESP_GOTO_ON_FALSE((s_iperf_ctrl.cfg.type == IPERF_IP_TYPE_IPV4), ESP_FAIL, exit, TAG, "Invalid AF types");
+#endif
+#ifdef CONFIG_LWIP_IPV6
     if (s_iperf_ctrl.cfg.type == IPERF_IP_TYPE_IPV6) {
         client_socket = socket(AF_INET6, SOCK_STREAM, IPPROTO_IPV6);
         ESP_GOTO_ON_FALSE((client_socket >= 0), ESP_FAIL, exit, TAG, "Unable to create socket: errno %d", errno);
@@ -340,7 +358,9 @@ static esp_err_t iperf_run_tcp_client(void)
         ESP_GOTO_ON_FALSE((err == 0), ESP_FAIL, exit, TAG, "Socket unable to connect: errno %d", errno);
         ESP_LOGI(TAG, "Successfully connected");
         memcpy(&dest_addr, &dest_addr6, sizeof(dest_addr6));
-    } else if (s_iperf_ctrl.cfg.type == IPERF_IP_TYPE_IPV4) {
+    } else
+#endif
+    if (s_iperf_ctrl.cfg.type == IPERF_IP_TYPE_IPV4) {
         client_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
         ESP_GOTO_ON_FALSE((client_socket >= 0), ESP_FAIL, exit, TAG, "Unable to create socket: errno %d", errno);
 
@@ -352,6 +372,8 @@ static esp_err_t iperf_run_tcp_client(void)
         ESP_LOGI(TAG, "Successfully connected");
         memcpy(&dest_addr, &dest_addr4, sizeof(dest_addr4));
     }
+    timeout.tv_sec = IPERF_SOCKET_TCP_TX_TIMEOUT;
+    setsockopt(client_socket, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
 
     if (iperf_hook_func) {
         iperf_hook_func(IPERF_TCP_CLIENT, IPERF_STARTED);
@@ -379,11 +401,14 @@ static esp_err_t iperf_run_udp_server(void)
     esp_err_t ret = ESP_OK;
     struct timeval timeout = { 0 };
     struct sockaddr_storage listen_addr = { 0 };
-    struct sockaddr_in6 listen_addr6 = { 0 };
     struct sockaddr_in listen_addr4 = { 0 };
-
+#ifdef CONFIG_LWIP_IPV6
+    struct sockaddr_in6 listen_addr6 = { 0 };
     ESP_GOTO_ON_FALSE((s_iperf_ctrl.cfg.type == IPERF_IP_TYPE_IPV6 || s_iperf_ctrl.cfg.type == IPERF_IP_TYPE_IPV4), ESP_FAIL, exit, TAG, "Invalid AF types");
-
+#else
+    ESP_GOTO_ON_FALSE((s_iperf_ctrl.cfg.type == IPERF_IP_TYPE_IPV4), ESP_FAIL, exit, TAG, "Invalid AF types");
+#endif
+#ifdef CONFIG_LWIP_IPV6
     if (s_iperf_ctrl.cfg.type == IPERF_IP_TYPE_IPV6) {
         // The UDP server listen at the address "::", which means all addresses can be listened to.
         inet6_aton("::", &listen_addr6.sin6_addr);
@@ -398,10 +423,12 @@ static esp_err_t iperf_run_udp_server(void)
 
         err = bind(listen_socket, (struct sockaddr *)&listen_addr6, sizeof(struct sockaddr_in6));
         ESP_GOTO_ON_FALSE((err == 0), ESP_FAIL, exit, TAG, "Socket unable to bind: errno %d", errno);
-        ESP_LOGI(TAG, "Socket bound, port %d", listen_addr6.sin6_port);
+        ESP_LOGI(TAG, "Socket bound, port %" PRIu16, listen_addr6.sin6_port);
 
         memcpy(&listen_addr, &listen_addr6, sizeof(listen_addr6));
-    } else if (s_iperf_ctrl.cfg.type == IPERF_IP_TYPE_IPV4) {
+    } else
+#endif
+    if (s_iperf_ctrl.cfg.type == IPERF_IP_TYPE_IPV4) {
         listen_addr4.sin_family = AF_INET;
         listen_addr4.sin_port = htons(s_iperf_ctrl.cfg.sport);
         listen_addr4.sin_addr.s_addr = s_iperf_ctrl.cfg.source_ip4;
@@ -444,11 +471,14 @@ static esp_err_t iperf_run_udp_client(void)
     int opt = 1;
     esp_err_t ret = ESP_OK;
     struct sockaddr_storage dest_addr = { 0 };
-    struct sockaddr_in6 dest_addr6 = { 0 };
     struct sockaddr_in dest_addr4 = { 0 };
-
+#ifdef CONFIG_LWIP_IPV6
+    struct sockaddr_in6 dest_addr6 = { 0 };
     ESP_GOTO_ON_FALSE((s_iperf_ctrl.cfg.type == IPERF_IP_TYPE_IPV6 || s_iperf_ctrl.cfg.type == IPERF_IP_TYPE_IPV4), ESP_FAIL, exit, TAG, "Invalid AF types");
-
+#else
+    ESP_GOTO_ON_FALSE((s_iperf_ctrl.cfg.type == IPERF_IP_TYPE_IPV4), ESP_FAIL, exit, TAG, "Invalid AF types");
+#endif
+#ifdef CONFIG_LWIP_IPV6
     if (s_iperf_ctrl.cfg.type == IPERF_IP_TYPE_IPV6) {
         inet6_aton(s_iperf_ctrl.cfg.destination_ip6, &dest_addr6.sin6_addr);
         dest_addr6.sin6_family = AF_INET6;
@@ -460,7 +490,9 @@ static esp_err_t iperf_run_udp_client(void)
 
         setsockopt(client_socket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
         memcpy(&dest_addr, &dest_addr6, sizeof(dest_addr6));
-    } else if (s_iperf_ctrl.cfg.type == IPERF_IP_TYPE_IPV4) {
+    } else
+#endif
+    if (s_iperf_ctrl.cfg.type == IPERF_IP_TYPE_IPV4) {
         dest_addr4.sin_family = AF_INET;
         dest_addr4.sin_port = htons(s_iperf_ctrl.cfg.dport);
         dest_addr4.sin_addr.s_addr = s_iperf_ctrl.cfg.destination_ip4;
@@ -514,15 +546,26 @@ static void iperf_task_traffic(void *arg)
 static uint32_t iperf_get_buffer_len(void)
 {
     if (iperf_is_udp_client()) {
-        return (s_iperf_ctrl.cfg.len_send_buf == 0 ? IPERF_UDP_TX_LEN : s_iperf_ctrl.cfg.len_send_buf);
+#ifdef CONFIG_LWIP_IPV6
+        if (s_iperf_ctrl.cfg.len_send_buf) {
+            return s_iperf_ctrl.cfg.len_send_buf;
+        } else if (s_iperf_ctrl.cfg.type == IPERF_IP_TYPE_IPV6) {
+            return IPERF_DEFAULT_IPV6_UDP_TX_LEN;
+        } else {
+            return IPERF_DEFAULT_IPV4_UDP_TX_LEN;
+        }
+#else
+        return (s_iperf_ctrl.cfg.len_send_buf == 0 ? IPERF_DEFAULT_IPV4_UDP_TX_LEN : s_iperf_ctrl.cfg.len_send_buf);
+#endif
     } else if (iperf_is_udp_server()) {
-        return IPERF_UDP_RX_LEN;
+        return IPERF_DEFAULT_UDP_RX_LEN;
     } else if (iperf_is_tcp_client()) {
-        return (s_iperf_ctrl.cfg.len_send_buf == 0 ? IPERF_TCP_TX_LEN : s_iperf_ctrl.cfg.len_send_buf);
+        return (s_iperf_ctrl.cfg.len_send_buf == 0 ? IPERF_DEFAULT_TCP_TX_LEN : s_iperf_ctrl.cfg.len_send_buf);
     } else {
-        return IPERF_TCP_RX_LEN;
+        return IPERF_DEFAULT_TCP_RX_LEN;
     }
     return 0;
+
 }
 
 esp_err_t iperf_start(iperf_cfg_t *cfg)
@@ -549,7 +592,7 @@ esp_err_t iperf_start(iperf_cfg_t *cfg)
         return ESP_FAIL;
     }
     memset(s_iperf_ctrl.buffer, 0, s_iperf_ctrl.buffer_len);
-    ret = xTaskCreatePinnedToCore(iperf_task_traffic, IPERF_TRAFFIC_TASK_NAME, IPERF_TRAFFIC_TASK_STACK, NULL, IPERF_TRAFFIC_TASK_PRIORITY, NULL, portNUM_PROCESSORS - 1);
+    ret = xTaskCreatePinnedToCore(iperf_task_traffic, IPERF_TRAFFIC_TASK_NAME, IPERF_TRAFFIC_TASK_STACK, NULL, IPERF_TRAFFIC_TASK_PRIORITY, NULL, NUMBER_OF_CORES - 1);
     if (ret != pdPASS) {
         ESP_LOGE(TAG, "create task %s failed", IPERF_TRAFFIC_TASK_NAME);
         free(s_iperf_ctrl.buffer);
@@ -587,7 +630,7 @@ esp_err_t iperf_stop(void)
     return ESP_OK;
 }
 
-void app_register_iperf_hook_funcs(iperf_hook_func_t func)
+void app_register_iperf_hook_func(iperf_hook_func_t func)
 {
     iperf_hook_func = func;
 }

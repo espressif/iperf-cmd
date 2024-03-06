@@ -22,7 +22,7 @@ typedef struct {
     struct arg_str *ip;
     struct arg_lit *server;
     struct arg_lit *udp;
-    struct arg_lit *version;
+    // struct arg_lit *version6;
     struct arg_int *port;
     struct arg_int *length;
     struct arg_int *interval;
@@ -55,7 +55,7 @@ static int cmd_do_iperf(int argc, char **argv)
     }
 
     memset(&cfg, 0, sizeof(cfg));
-    // now iperf only support IPV4 address
+    // now iperf-cmd only support IPV4 address
     cfg.type = IPERF_IP_TYPE_IPV4;
 
     if (((iperf_args.ip->count == 0) && (iperf_args.server->count == 0)) ||
@@ -125,13 +125,13 @@ static int cmd_do_iperf(int argc, char **argv)
         }
     }
     /* -f --format */
-    cfg.format = IPERF_FORMAT_MBITS;
+    cfg.format = MBITS_PER_SEC;
     if (iperf_args.format->count > 0) {
         char format_ch = iperf_args.format->sval[0][0];
         if (format_ch == 'k') {
-            cfg.format = IPERF_FORMAT_KBITS;
+            cfg.format = KBITS_PER_SEC;
         } else if (format_ch == 'm') {
-            cfg.format = IPERF_FORMAT_MBITS;
+            cfg.format = MBITS_PER_SEC;
         } else {
             ESP_LOGW(APP_TAG, "ignore invalid format: %c", format_ch);
         }
@@ -159,7 +159,9 @@ esp_err_t app_register_iperf_commands(void)
     iperf_args.ip = arg_str0("c", "client", "<host>", "run in client mode, connecting to <host>");
     iperf_args.server = arg_lit0("s", "server", "run in server mode");
     iperf_args.udp = arg_lit0("u", "udp", "use UDP rather than TCP");
-    // iperf_args.version = arg_lit0("6", "version6", "Use IPv6 addresses");
+// #ifdef CONFIG_LWIP_IPV6
+//     iperf_args.version6 = arg_lit0("6", "version6", "Use IPv6 addresses");
+// #endif
     iperf_args.port = arg_int0("p", "port", "<port>", "server port to listen on/connect to");
     iperf_args.length = arg_int0("l", "len", "<length>", "Set read/write buffer size");
     iperf_args.interval = arg_int0("i", "interval", "<interval>", "seconds between periodic bandwidth reports");
