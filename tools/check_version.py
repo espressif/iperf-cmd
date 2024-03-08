@@ -15,6 +15,8 @@ TAG_VERSION = os.environ.get('CI_COMMIT_TAG')
 
 def check_version(version: str):
     """Check iperf and iperf-cmd versions"""
+    if version.startswith('v'):
+        version = version[1:]
     for component_yml in COMPONENT_YML_FILES:
         with open(component_yml, 'r', encoding='utf-8') as f:
             data = yaml.load(f, Loader=yaml.SafeLoader)
@@ -28,9 +30,7 @@ def check_version(version: str):
         dependencies = data['dependencies']
         for key, val in dependencies.items():
             if key in ['espressif/iperf', 'espressif/iperf-cmd']:
-                assert (
-                    version == val['version']
-                ), f'dependencies version mismatch: {component_yml}'
+                assert val['version'] == f'={version}', f'dependencies version mismatch: {component_yml}'
 
 
 def main():

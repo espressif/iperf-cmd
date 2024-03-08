@@ -1,0 +1,19 @@
+[tool.commitizen]
+version = "0.1.1"
+name = "cz_conventional_commits"
+version_files = [
+    "apps/iperf/main/idf_component.yml",
+    "iperf/idf_component.yml",
+    "iperf/CHANGELOG.md",
+    "iperf/README.md",
+    "iperf-cmd/idf_component.yml",
+    "iperf-cmd/CHANGELOG.md",
+    "iperf-cmd/README.md",
+]
+tag_format = "v$major.$minor.$patch"
+version_scheme = "semver"
+bump_message = "bump: development version $current_version → $new_version"
+update_changelog_on_bump = false
+pre_bump_hooks = [
+  "tools/pre_bump_hook.sh"
+]

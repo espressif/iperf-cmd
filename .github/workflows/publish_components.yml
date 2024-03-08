@@ -1,0 +1,36 @@
+name: Publish iperf/iperf-cmd to IDF Component Registry
+
+on:
+  push:
+    tags:
+      - v*
+
+jobs:
+  upload_components:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v5
+
+      - name: check components version same with tag
+        run: |
+          pip install -r tools/requirements.txt
+          python tools/check_version.py --version ${{ github.ref_name }}
+
+      - name: Upload iperf to IDF Component Registry
+        uses: espressif/upload-components-ci-action@v1
+        with:
+          name: "iperf"
+          directories: "iperf"
+          version: ${{ github.ref_name }}
+          namespace: "espressif"
+          api_token: ${{ secrets.IDF_COMPONENT_API_TOKEN }}
+
+      - name: Upload iperf_cmd to IDF Component Registry
+        uses: espressif/upload-components-ci-action@v1
+        with:
+          name: "iperf-cmd"
+          directories: "iperf-cmd"
+          version: ${{ github.ref_name }}
+          namespace: "espressif"
+          api_token: ${{ secrets.IDF_COMPONENT_API_TOKEN }}

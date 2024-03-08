@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.0.1](https://github.com/espressif/iperf-cmd/commits/v0.0.1)
+## [0.1.1](https://github.com/espressif/iperf-cmd/commits/v0.1.1)
 
 ### Features
 
