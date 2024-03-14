@@ -37,20 +37,22 @@ extern "C" {
 #define IPERF_REPORT_TASK_PRIORITY CONFIG_IPERF_REPORT_TASK_PRIORITY
 #define IPERF_REPORT_TASK_STACK 4096
 
-#define IPERF_UDP_TX_LEN (1470)
-#define IPERF_UDP_RX_LEN (16 << 10)
-#define IPERF_TCP_TX_LEN (16 << 10)
-#define IPERF_TCP_RX_LEN (16 << 10)
+#define IPERF_DEFAULT_IPV4_UDP_TX_LEN   (1470)
+#define IPERF_DEFAULT_IPV6_UDP_TX_LEN   (1450)
+#define IPERF_DEFAULT_UDP_RX_LEN        (16 << 10)
+#define IPERF_DEFAULT_TCP_TX_LEN        (16 << 10)
+#define IPERF_DEFAULT_TCP_RX_LEN        (16 << 10)
 
 #define IPERF_MAX_DELAY 64
 
 #define IPERF_SOCKET_RX_TIMEOUT CONFIG_IPERF_SOCKET_RX_TIMEOUT
+#define IPERF_SOCKET_TCP_TX_TIMEOUT CONFIG_IPERF_SOCKET_TCP_TX_TIMEOUT
 #define IPERF_SOCKET_ACCEPT_TIMEOUT 5
 
-#define IPERF_FORMAT_MBITS (0)
-#define IPERF_FORMAT_KBITS (1)
-
-extern bool g_iperf_is_running;
+typedef enum {
+    MBITS_PER_SEC,
+    KBITS_PER_SEC,
+} iperf_output_format_t;
 
 typedef struct {
     uint32_t flag;
@@ -63,7 +65,7 @@ typedef struct {
         char    *source_ip6;
     };
     uint8_t type;
-    uint8_t format;
+    iperf_output_format_t format;
     uint16_t dport;
     uint16_t sport;
     uint32_t interval;
@@ -84,6 +86,8 @@ typedef enum {
     IPERF_STOPPED,
 } iperf_status_t;
 
+
+extern bool g_iperf_is_running;
 
 /**
  * @brief Iperf traffic start with given config

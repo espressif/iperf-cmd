@@ -1,3 +1,0 @@
-apps/iperf:
-  disable:
-    - if: SOC_WIFI_SUPPORTED != 1

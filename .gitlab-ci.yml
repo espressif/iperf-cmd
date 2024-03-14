@@ -48,7 +48,9 @@ build_iperf:
       - ESP_IMG: espressif/idf:latest
   script:
     - pip install idf-build-apps
-    - idf-build-apps build -p apps/iperf --target=all --manifest-file=apps/.build_rules.yml --build-dir build_@t
+    - idf-build-apps build -p apps/iperf --target=all --manifest-file=apps/.build-rules.yml --build-dir build_@t_@w --config 'sdkconfig.ci.*='
+  after_script:
+    - ls apps/iperf
   tags:
     - build
     - internet
@@ -62,8 +64,10 @@ build_iperf_v43:
   variables:
     LC_ALL: C.UTF-8
   script:
-    - pip install idf-build-apps\<2 packaging\<22 idf-component-manager==1.4.0
-    - idf-build-apps build -p apps/iperf --target all --build-dir build_@t
+    - pip install idf-build-apps\<2 packaging\<22 idf-component-manager==1.4
+    - idf-build-apps build -p apps/iperf --target all --build-dir build_@t_@w --config 'sdkconfig.ci.*='
+  after_script:
+    - ls apps/iperf
   tags:
     - build
     - internet
