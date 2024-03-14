@@ -49,31 +49,40 @@ extern "C" {
 #define IPERF_SOCKET_TCP_TX_TIMEOUT CONFIG_IPERF_SOCKET_TCP_TX_TIMEOUT
 #define IPERF_SOCKET_ACCEPT_TIMEOUT 5
 
+/**
+ * @brief Iperf output report format
+ */
 typedef enum {
     MBITS_PER_SEC,
     KBITS_PER_SEC,
 } iperf_output_format_t;
 
+/**
+ * @brief Iperf Configuration
+ */
 typedef struct {
-    uint32_t flag;
+    uint32_t flag; /**< iperf flag */
     union {
-        uint32_t destination_ip4;
-        char    *destination_ip6;
+        uint32_t destination_ip4;  /**< destination ipv4 */
+        char    *destination_ip6;  /**< destination ipv6 */
     };
     union {
-        uint32_t source_ip4;
-        char    *source_ip6;
+        uint32_t source_ip4;  /**< source ipv4 */
+        char    *source_ip6;  /**< source ipv6 */
     };
-    uint8_t type;
-    iperf_output_format_t format;
-    uint16_t dport;
-    uint16_t sport;
-    uint32_t interval;
-    uint32_t time;
-    uint16_t len_send_buf;
-    int32_t bw_lim;
+    uint8_t type;          /**< address type, ipv4 or ipv6 */
+    iperf_output_format_t format; /**< output format, K(bits/s), M(bits/s) */
+    uint16_t dport;        /**< destination port */
+    uint16_t sport;        /**< source port */
+    uint32_t interval;     /**< report interval in secs */
+    uint32_t time;         /**< total send time in secs */
+    uint16_t len_send_buf; /**< send buffer length in bytes */
+    int32_t bw_lim;        /**< bandwidth limit in Mbits/s */
 } iperf_cfg_t;
 
+/**
+ * @brief Iperf traffic type
+ */
 typedef enum {
     IPERF_TCP_SERVER,
     IPERF_TCP_CLIENT,
@@ -81,6 +90,9 @@ typedef enum {
     IPERF_UDP_CLIENT,
 } iperf_traffic_type_t;
 
+/**
+ * @brief Iperf status
+ */
 typedef enum {
     IPERF_STARTED,
     IPERF_STOPPED,
