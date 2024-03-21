@@ -39,7 +39,30 @@ Your PR may not be published until a new version of this component is released.
 
 When releasing a new component version we have to:
 
-* Create the version tag in this repository
-* Publish the component to component registry
-* Update the version number to next dev version
-* Update the changelog
+- Check and update the changelog.
+- Create the version tag in this repository, then pass build/test jobs.
+- Create a new github release and publish the component to component registry.
+- Bump a new version for next release.
+
+  - Create a new branch from the latest release
+
+  ```
+    # bump new dev version
+    - git branch -D bump/new_patch_version || true
+    - git checkout -b bump/new_patch_version
+    - git tag --delete v$(cz version --project) || true
+  ```
+
+  - Bump new version
+
+  ```bash
+  # new patch version
+  cz bump --increment=PATCH
+  # new dev version
+  cz bump --increment=PATCH --devrelease <number>
+  # new custom version
+  cz bump 0.2.0-dev1
+  ```
+
+  - Push the new branch to remote repo and create a MR.
+  - NOTE: local tags needs to be deleted, do not push the new tag to remote repository.

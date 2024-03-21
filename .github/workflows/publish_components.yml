@@ -1,9 +1,8 @@
 name: Publish iperf/iperf-cmd to IDF Component Registry
 
 on:
-  push:
-    tags:
-      - v*
+  release:
+    types: [created]
 
 jobs:
   upload_components:
@@ -15,14 +14,14 @@ jobs:
       - name: check components version same with tag
         run: |
           pip install -r tools/requirements.txt
-          python tools/check_version.py --version ${{ github.ref_name }}
+          python tools/check_version.py --version ${{ github.event.release.tag_name }}
 
       - name: Upload iperf to IDF Component Registry
         uses: espressif/upload-components-ci-action@v1
         with:
           name: "iperf"
           directories: "iperf"
-          version: ${{ github.ref_name }}
+          version: ${{ github.event.release.tag_name }}
           namespace: "espressif"
           api_token: ${{ secrets.IDF_COMPONENT_API_TOKEN }}
 
@@ -31,6 +30,6 @@ jobs:
         with:
           name: "iperf-cmd"
           directories: "iperf-cmd"
-          version: ${{ github.ref_name }}
+          version: ${{ github.event.release.tag_name }}
           namespace: "espressif"
           api_token: ${{ secrets.IDF_COMPONENT_API_TOKEN }}

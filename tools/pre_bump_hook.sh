@@ -7,7 +7,7 @@ test -n "$CZ_PRE_CURRENT_VERSION" || (echo "CZ_PRE_CURRENT_VERSION must be set!"
 test -n "$CZ_PRE_NEW_VERSION" || (echo "CZ_PRE_NEW_VERSION must be set!"; exit 1)
 
 # Update Changelog files
-if [ "${CZ_PRE_INCREMENT:-PATCH}" == "PATCH" ]; then
+if [ "${CZ_PRE_INCREMENT:-}" == "PATCH" ]; then
     # For features or breaking changes, do not add new version to changelog
     for file in "iperf/CHANGELOG.md" "iperf-cmd/CHANGELOG.md";
     do
