@@ -216,8 +216,8 @@ IRAM_ATTR static void socket_send(int send_socket, struct sockaddr_storage dest_
         if (actual_send != want_send) {
             if (type == IPERF_TRANS_TYPE_UDP) {
                 err = iperf_get_socket_error_code(send_socket);
-                // ENOMEM is expected under heavy load => do not print it
-                if (err != ENOMEM) {
+                // ENOMEM & ENOBUFS is expected under heavy load => do not print it
+                if ((err != ENOMEM) && (err != ENOBUFS)) {
                     iperf_show_socket_error_reason(error_log, send_socket);
                 }
             } else if (type == IPERF_TRANS_TYPE_TCP) {
