@@ -1,0 +1,22 @@
+paths = [
+    "apps",
+]
+recursive = true
+target = "all"
+
+manifest_file = [
+    "apps/.build-rules.yml",
+]
+check_manifest_rules = true
+
+config = [
+    "sdkconfig.ci=default",
+    "sdkconfig.ci.*=",
+    "=default",
+]
+
+build_dir = "build_@t_@w"
+build_log = "build_log.txt"
+verbose = 1
+
+check_warnings = true
