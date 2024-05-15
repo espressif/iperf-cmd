@@ -47,6 +47,8 @@
 | define  | [**IPERF\_FLAG\_SET**](#define-iperf_flag_set) (cfg, flag) ((cfg) |= (flag))<br> |
 | define  | [**IPERF\_FLAG\_TCP**](#define-iperf_flag_tcp)  (1 &lt;&lt; 2)<br> |
 | define  | [**IPERF\_FLAG\_UDP**](#define-iperf_flag_udp)  (1 &lt;&lt; 3)<br> |
+| define  | [**IPERF\_IPV4\_ENABLED**](#define-iperf_ipv4_enabled)  LWIP\_IPV4<br> |
+| define  | [**IPERF\_IPV6\_ENABLED**](#define-iperf_ipv6_enabled)  LWIP\_IPV6<br> |
 | define  | [**IPERF\_IP\_TYPE\_IPV4**](#define-iperf_ip_type_ipv4)  0<br> |
 | define  | [**IPERF\_IP\_TYPE\_IPV6**](#define-iperf_ip_type_ipv6)  1<br> |
 | define  | [**IPERF\_MAX\_DELAY**](#define-iperf_max_delay)  64<br> |
@@ -279,6 +281,18 @@ ESP\_OK on success
 
 ```c
 #define IPERF_FLAG_UDP (1 << 3)
+```
+
+### define `IPERF_IPV4_ENABLED`
+
+```c
+#define IPERF_IPV4_ENABLED LWIP_IPV4
+```
+
+### define `IPERF_IPV6_ENABLED`
+
+```c
+#define IPERF_IPV6_ENABLED LWIP_IPV6
 ```
 
 ### define `IPERF_IP_TYPE_IPV4`

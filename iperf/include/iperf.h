@@ -5,12 +5,29 @@
  */
 #pragma once
 
+#include <sys/socket.h>
 #include "esp_err.h"
 #include "esp_types.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/*
+ * There's no CONFIG_LWIP_IPV4 in idf<5.1
+ * use LWIP_IPV4 from lwipopts.h (sys/socket.h)
+ * LWIP_IPV4 should always be defined (0/1).
+ */
+#ifndef LWIP_IPV4
+#error "LWIP_IPV4 should be defined from lwipopts.h (sys/socket.h)."
+#endif
+
+/*
+ * We only use lwip stack for now, but we may support different IP stack in the future.
+ */
+#define IPERF_IPV4_ENABLED LWIP_IPV4
+#define IPERF_IPV6_ENABLED LWIP_IPV6
+
 
 #define IPERF_IP_TYPE_IPV4 0
 #define IPERF_IP_TYPE_IPV6 1

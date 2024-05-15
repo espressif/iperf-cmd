@@ -5,6 +5,13 @@
  */
 #include <errno.h>
 #include <string.h>
+#include <sys/socket.h>
+
+/* Build check: LWIP_IPV4/LWIP_IPV6 should be defined after include sys/socket.h */
+#if !(defined LWIP_IPV4) || !(defined LWIP_IPV6)
+#error "Both LWIP_IPV4 and LWIP_IPV6 should be defined!"
+#endif
+
 #include "esp_wifi.h"
 #include "esp_log.h"
 #include "esp_err.h"

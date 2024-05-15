@@ -46,9 +46,15 @@ build_iperf:
       - ESP_IMG: espressif/idf:release-v5.1
       - ESP_IMG: espressif/idf:release-v5.2
       - ESP_IMG: espressif/idf:latest
+  artifacts:
+    paths:
+      - "**/build*/build_log.txt"
+      - "**/build*/config/sdkconfig.json"
+    when: always
+    expire_in: 5 days
   script:
     - pip install idf-build-apps
-    - idf-build-apps build -p apps/iperf --target=all --manifest-file=apps/.build-rules.yml --build-dir build_@t_@w --config 'sdkconfig.ci.*='
+    - idf-build-apps build
   after_script:
     - ls apps/iperf
   tags:
@@ -63,9 +69,15 @@ build_iperf_v43:
     - when: on_success
   variables:
     LC_ALL: C.UTF-8
+  artifacts:
+    paths:
+      - "**/build*/build_log.txt"
+      - "**/build*/config/sdkconfig.json"
+    when: always
+    expire_in: 5 days
   script:
     - pip install idf-build-apps\<2 packaging\<22 idf-component-manager==1.4
-    - idf-build-apps build -p apps/iperf --target all --build-dir build_@t_@w --config 'sdkconfig.ci.*='
+    - idf-build-apps build
   after_script:
     - ls apps/iperf
   tags:

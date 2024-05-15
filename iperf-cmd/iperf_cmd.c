@@ -6,13 +6,15 @@
 #include <stdio.h>
 #include <string.h>
 #include <inttypes.h>
+#include <sys/socket.h>
 // #include "esp_idf_version.h"
 #include "esp_log.h"
 #include "esp_console.h"
 #include "argtable3/argtable3.h"
+#include "esp_netif.h"
+
 #include "iperf.h"
 
-#include "esp_netif.h"
 
 #ifndef APP_TAG
 #define APP_TAG "IPERF"
@@ -22,7 +24,9 @@ typedef struct {
     struct arg_str *ip;
     struct arg_lit *server;
     struct arg_lit *udp;
-    // struct arg_lit *version6;
+#if IPERF_IPV6_ENABLED
+    struct arg_lit *ipv6_domain;
+#endif
     struct arg_int *port;
     struct arg_int *length;
     struct arg_int *interval;
@@ -55,8 +59,13 @@ static int cmd_do_iperf(int argc, char **argv)
     }
 
     memset(&cfg, 0, sizeof(cfg));
-    // now iperf-cmd only support IPV4 address
+
     cfg.type = IPERF_IP_TYPE_IPV4;
+#if IPERF_IPV6_ENABLED
+    if (iperf_args.ipv6_domain->count > 0) {
+        cfg.type = IPERF_IP_TYPE_IPV6;
+    }
+#endif
 
     if (((iperf_args.ip->count == 0) && (iperf_args.server->count == 0)) ||
             ((iperf_args.ip->count != 0) && (iperf_args.server->count != 0))) {
@@ -67,11 +76,19 @@ static int cmd_do_iperf(int argc, char **argv)
     if (iperf_args.ip->count == 0) {
         cfg.flag |= IPERF_FLAG_SERVER;
     } else {
-        cfg.destination_ip4 = esp_ip4addr_aton(iperf_args.ip->sval[0]);
         cfg.flag |= IPERF_FLAG_CLIENT;
+#if IPERF_IPV6_ENABLED
+        if (cfg.type == IPERF_IP_TYPE_IPV6) {
+            /* TODO: Refactor iperf config structure in v1.0 */
+            cfg.destination_ip6 = (char*)(iperf_args.ip->sval[0]);
+        }
+#endif
+#if IPERF_IPV4_ENABLED
+        if (cfg.type == IPERF_IP_TYPE_IPV4) {
+            cfg.destination_ip4 = esp_ip4addr_aton(iperf_args.ip->sval[0]);
+        }
+#endif
     }
-
-    // NOTE: Do not bind local ip now
 
     if (iperf_args.udp->count == 0) {
         cfg.flag |= IPERF_FLAG_TCP;
@@ -137,15 +154,15 @@ static int cmd_do_iperf(int argc, char **argv)
         }
     }
 
-    ESP_LOGI(APP_TAG, "mode=%s-%s sip=%" PRId32 ".%" PRId32 ".%" PRId32 ".%" PRId32 ":%d,\
-             dip=%" PRId32 ".%" PRId32 ".%" PRId32 ".%" PRId32 ":%d,\
-             interval=%" PRId32 ", time=%" PRId32 "",
+    ESP_LOGI(APP_TAG, "mode=%s-%s sip=%s:%" PRId32 ", dip=%s:%" PRId32 ", interval=%" PRId32 ", time=%" PRId32,
              cfg.flag & IPERF_FLAG_TCP ? "tcp" : "udp",
              cfg.flag & IPERF_FLAG_SERVER ? "server" : "client",
-             cfg.source_ip4 & 0xFF, (cfg.source_ip4 >> 8) & 0xFF, (cfg.source_ip4 >> 16) & 0xFF,
-             (cfg.source_ip4 >> 24) & 0xFF, cfg.sport,
-             cfg.destination_ip4 & 0xFF, (cfg.destination_ip4 >> 8) & 0xFF,
-             (cfg.destination_ip4 >> 16) & 0xFF, (cfg.destination_ip4 >> 24) & 0xFF, cfg.dport,
+             "localhost", cfg.sport,
+#if IPERF_IPV4_ENABLED
+             cfg.type == IPERF_IP_TYPE_IPV6? cfg.destination_ip6 : inet_ntoa(cfg.destination_ip4), cfg.dport,
+#else
+             cfg.type == IPERF_IP_TYPE_IPV6? cfg.destination_ip6 : "0.0.0.0", cfg.dport,
+#endif
              cfg.interval, cfg.time);
 
     iperf_start(&cfg);
@@ -159,9 +176,14 @@ esp_err_t app_register_iperf_commands(void)
     iperf_args.ip = arg_str0("c", "client", "<host>", "run in client mode, connecting to <host>");
     iperf_args.server = arg_lit0("s", "server", "run in server mode");
     iperf_args.udp = arg_lit0("u", "udp", "use UDP rather than TCP");
-// #ifdef CONFIG_LWIP_IPV6
-//     iperf_args.version6 = arg_lit0("6", "version6", "Use IPv6 addresses");
-// #endif
+#if IPERF_IPV6_ENABLED
+    /*
+     * NOTE: iperf2 uses -V(--ipv6_domain or --IPv6Version) for ipv6
+     * iperf3 uses -6(--version6)
+     * May add a new command "iperf3" in the future
+     */
+    iperf_args.ipv6_domain = arg_lit0("V", "ipv6_domain", "Set the domain to IPv6 (send packets over IPv6)");
+#endif
     iperf_args.port = arg_int0("p", "port", "<port>", "server port to listen on/connect to");
     iperf_args.length = arg_int0("l", "len", "<length>", "Set read/write buffer size");
     iperf_args.interval = arg_int0("i", "interval", "<interval>", "seconds between periodic bandwidth reports");

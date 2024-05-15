@@ -15,6 +15,7 @@ This repository contains `iperf` command based esp-idf console.
     -c, --client=<host>  run in client mode, connecting to <host>
     -s, --server  run in server mode
       -u, --udp  use UDP rather than TCP
+    -V, --ipv6_domain  Set the domain to IPv6 (send packets over IPv6)
     -p, --port=<port>  server port to listen on/connect to
     -l, --len=<length>  Set read/write buffer size
     -i, --interval=<interval>  seconds between periodic bandwidth reports

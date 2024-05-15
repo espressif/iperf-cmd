@@ -1,4 +1,12 @@
 apps/iperf:
   disable:
     - if: SOC_WIFI_SUPPORTED != 1
-    - if: IDF_TARGET != "esp32" and CONFIG_NAME != "default"
+      reason: This example app is using wifi connections
+    # ipv6-only
+    - if: CONFIG_NAME == "ipv6_only" and IDF_VERSION_MAJOR < 5
+      reason: IDF do not support ipv6-only
+    - if: CONFIG_NAME == "ipv6_only" and (IDF_VERSION_MAJOR == 5 and IDF_VERSION_MINOR < 1)
+      reason: IDF do not support ipv6-only
+    # build specific configuration for only one target
+    - if: IDF_TARGET != "esp32" and CONFIG_NAME == "ipv4_only"
+    - if: IDF_TARGET != "esp32c3" and CONFIG_NAME == "ipv6_only"
