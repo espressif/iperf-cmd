@@ -1,4 +1,4 @@
-version: 0.1.1
+version: 0.1.2
 description: Iperf command based on esp-idf console
 url: https://github.com/espressif/iperf-cmd/tree/master/iperf-cmd
 repository: https://github.com/espressif/iperf-cmd.git
@@ -8,7 +8,7 @@ license: Apache-2.0
 dependencies:
   idf: '>=4.3'
   espressif/iperf:
-    version: =0.1.1
+    version: =0.1.2
 examples:
   - path: ../apps/iperf/
 files:

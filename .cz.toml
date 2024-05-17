@@ -1,5 +1,5 @@
 [tool.commitizen]
-version = "0.1.1"
+version = "0.1.2"
 name = "cz_conventional_commits"
 version_files = [
     "apps/iperf/main/idf_component.yml",

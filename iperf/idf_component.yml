@@ -1,4 +1,4 @@
-version: 0.1.1
+version: 0.1.2
 description: Iperf Core Engine
 url: https://github.com/espressif/iperf-cmd/tree/master/iperf
 repository: https://github.com/espressif/iperf-cmd.git
