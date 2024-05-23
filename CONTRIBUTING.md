@@ -39,7 +39,19 @@ Your PR may not be published until a new version of this component is released.
 
 When releasing a new component version we have to:
 
-* Create the version tag in this repository
-* Publish the component to component registry
-* Update the version number to next dev version
-* Update the changelog
+- Pass build/test with current (latest) version commit.
+- Bump a new version using `cz bump`:
+
+  ```bash
+  git branch -D bump/new_version || true
+  git checkout -b bump/new_version
+  # bump new version: https://commitizen-tools.github.io/commitizen/commands/bump/
+  cz bump <new_version>
+  # Or
+  cz bump --increment=PATCH
+  ```
+
+  - Change logs are automatically generated and updated.
+- Merge the new version branch into the main branch.
+- Create a new version tag in this repository.
+- Create a new github release and publish the component to component registry.
