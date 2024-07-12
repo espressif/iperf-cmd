@@ -31,12 +31,8 @@ void app_main(void)
     ESP_ERROR_CHECK(ret);
 
     /* initialise wifi */
-    app_wifi_initialise_config_t config = APP_WIFI_CONFIG_DEFAULT();
-    config.storage = WIFI_STORAGE_RAM;
-    config.ps_type = WIFI_PS_NONE;
-    app_initialise_wifi(&config);
+    app_initialise_wifi(NULL);
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-    ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
 
     esp_console_repl_t *repl = NULL;
     esp_console_repl_config_t repl_config = ESP_CONSOLE_REPL_CONFIG_DEFAULT();
