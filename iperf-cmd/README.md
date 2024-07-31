@@ -6,7 +6,8 @@ This repository contains `iperf` command based esp-idf console.
 
 ### Supported commands:
 
-- Part of official iperf: https://iperf.fr/iperf-doc.php
+- Part of official iperf (2.0): https://iperf.fr/iperf-doc.php#doc
+  - note: `iperf3` has not been supported.
 - And `iperf --abort`
 
   ```
