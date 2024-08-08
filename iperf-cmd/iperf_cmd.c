@@ -170,7 +170,7 @@ static int cmd_do_iperf(int argc, char **argv)
     return 0;
 }
 
-esp_err_t app_register_iperf_commands(void)
+esp_err_t iperf_cmd_register_iperf(void)
 {
     /* same with official iperf: https://iperf.fr/iperf-doc.php */
     iperf_args.ip = arg_str0("c", "client", "<host>", "run in client mode, connecting to <host>");

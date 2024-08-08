@@ -666,7 +666,7 @@ esp_err_t iperf_stop(void)
     return ESP_OK;
 }
 
-void app_register_iperf_hook_func(iperf_hook_func_t func)
+void iperf_register_hook_func(iperf_hook_func_t func)
 {
     iperf_hook_func = func;
 }

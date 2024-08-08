@@ -15,7 +15,10 @@ extern "C" {
  *
  * @return ESP_OK on success
  */
-esp_err_t app_register_iperf_commands(void);
+esp_err_t iperf_cmd_register_iperf(void);
+
+/* TODO: deprecate app_xxx in v0.2, remove them in v1.0 */
+#define app_register_iperf_commands iperf_cmd_register_iperf
 
 #ifdef __cplusplus
 }

@@ -15,17 +15,22 @@
 
 | Type | Name |
 | ---: | :--- |
-|  esp\_err\_t | [**app\_register\_iperf\_commands**](#function-app_register_iperf_commands) (void) <br>_Registers console commands: iperf._ |
+|  esp\_err\_t | [**iperf\_cmd\_register\_iperf**](#function-iperf_cmd_register_iperf) (void) <br>_Registers console commands: iperf._ |
 
+## Macros
+
+| Type | Name |
+| ---: | :--- |
+| define  | [**app\_register\_iperf\_commands**](#define-app_register_iperf_commands)  iperf\_cmd\_register\_iperf<br> |
 
 
 ## Functions Documentation
 
-### function `app_register_iperf_commands`
+### function `iperf_cmd_register_iperf`
 
 _Registers console commands: iperf._
 ```c
-esp_err_t app_register_iperf_commands (
+esp_err_t iperf_cmd_register_iperf (
     void
 ) 
 ```
@@ -34,5 +39,13 @@ esp_err_t app_register_iperf_commands (
 **Returns:**
 
 ESP\_OK on success
+
+## Macros Documentation
+
+### define `app_register_iperf_commands`
+
+```c
+#define app_register_iperf_commands iperf_cmd_register_iperf
+```
 
 
