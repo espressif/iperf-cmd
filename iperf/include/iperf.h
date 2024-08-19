@@ -142,8 +142,10 @@ extern iperf_hook_func_t iperf_hook_func;
 /**
  * @brief Registers iperf traffic start/stop hook function
  */
-void app_register_iperf_hook_func(iperf_hook_func_t func);
+void iperf_register_hook_func(iperf_hook_func_t func);
 
+/* TODO: deprecate app_xxx in v0.2, remove them in v1.0 */
+#define app_register_iperf_hook_func iperf_register_hook_func
 
 #ifdef __cplusplus
 }

@@ -24,7 +24,7 @@
 
 | Type | Name |
 | ---: | :--- |
-|  void | [**app\_register\_iperf\_hook\_func**](#function-app_register_iperf_hook_func) (iperf\_hook\_func\_t func) <br>_Registers iperf traffic start/stop hook function._ |
+|  void | [**iperf\_register\_hook\_func**](#function-iperf_register_hook_func) (iperf\_hook\_func\_t func) <br>_Registers iperf traffic start/stop hook function._ |
 |  esp\_err\_t | [**iperf\_start**](#function-iperf_start) ([**iperf\_cfg\_t**](#struct-iperf_cfg_t) \*cfg) <br>_Iperf traffic start with given config._ |
 |  esp\_err\_t | [**iperf\_stop**](#function-iperf_stop) (void) <br>_Iperf traffic stop._ |
 
@@ -63,6 +63,7 @@
 | define  | [**IPERF\_TRAFFIC\_TASK\_STACK**](#define-iperf_traffic_task_stack)  4096<br> |
 | define  | [**IPERF\_TRANS\_TYPE\_TCP**](#define-iperf_trans_type_tcp)  0<br> |
 | define  | [**IPERF\_TRANS\_TYPE\_UDP**](#define-iperf_trans_type_udp)  1<br> |
+| define  | [**app\_register\_iperf\_hook\_func**](#define-app_register_iperf_hook_func)  iperf\_register\_hook\_func<br> |
 
 ## Structures and Types Documentation
 
@@ -143,11 +144,11 @@ enum iperf_traffic_type_t {
 
 ## Functions Documentation
 
-### function `app_register_iperf_hook_func`
+### function `iperf_register_hook_func`
 
 _Registers iperf traffic start/stop hook function._
 ```c
-void app_register_iperf_hook_func (
+void iperf_register_hook_func (
     iperf_hook_func_t func
 ) 
 ```
@@ -377,6 +378,12 @@ ESP\_OK on success
 
 ```c
 #define IPERF_TRANS_TYPE_UDP 1
+```
+
+### define `app_register_iperf_hook_func`
+
+```c
+#define app_register_iperf_hook_func iperf_register_hook_func
 ```
 
 
