@@ -26,4 +26,35 @@ menu "Iperf"
         help
            The value is used for iperf result report task priority.
 
+    config IPERF_DEF_TCP_TX_BUFFER_LEN
+        int "default tcp tx buffer length"
+        default 16384
+        help
+           The value of default tcp tx buffer length.
+
+    config IPERF_DEF_TCP_RX_BUFFER_LEN
+        int "default tcp rx buffer length"
+        default 16384
+        help
+           The value of default tcp rx buffer length.
+
+    config IPERF_DEF_IPV4_UDP_TX_BUFFER_LEN
+        int "default ipv4 udp tx buffer length"
+        default 1470
+        help
+           The value of default ipv4 udp tx buffer length.
+
+    config IPERF_DEF_IPV6_UDP_TX_BUFFER_LEN
+        int "default ipv6 udp tx buffer length"
+        default 1450
+        help
+           The value of default ipv6 udp tx buffer length.
+
+    config IPERF_DEF_UDP_RX_BUFFER_LEN
+        int "default udp rx buffer length"
+        default 16384
+        help
+           The value of default udp rx buffer length.
+           Not recommended to set the value too small due to udp does not support fragmentation.
+
 endmenu
