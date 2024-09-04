@@ -334,9 +334,6 @@ static esp_err_t iperf_run_tcp_server(void)
         iperf_hook_func(IPERF_TCP_SERVER, IPERF_STARTED);
     }
     socket_recv(client_socket, listen_addr, IPERF_TRANS_TYPE_TCP);
-    if (iperf_hook_func) {
-        iperf_hook_func(IPERF_TCP_SERVER, IPERF_STOPPED);
-    }
 
 exit:
     if (client_socket != -1) {
@@ -348,6 +345,9 @@ exit:
         shutdown(tcp_listen_socket, 0);
         close(tcp_listen_socket);
         ESP_LOGD(TAG, "TCP listen socket is closed.");
+    }
+    if (iperf_hook_func) {
+        iperf_hook_func(IPERF_TCP_SERVER, IPERF_STOPPED);
     }
     s_iperf_ctrl.finish = true;
     return ret;
@@ -405,15 +405,15 @@ static esp_err_t iperf_run_tcp_client(void)
         iperf_hook_func(IPERF_TCP_CLIENT, IPERF_STARTED);
     }
     socket_send(client_socket, dest_addr, IPERF_TRANS_TYPE_TCP, s_iperf_ctrl.cfg.bw_lim);
-    if (iperf_hook_func) {
-        iperf_hook_func(IPERF_TCP_CLIENT, IPERF_STOPPED);
-    }
 
 exit:
     if (client_socket != -1) {
         shutdown(client_socket, 0);
         close(client_socket);
         ESP_LOGI(TAG, "TCP Socket client is closed.");
+    }
+    if (iperf_hook_func) {
+        iperf_hook_func(IPERF_TCP_CLIENT, IPERF_STOPPED);
     }
     s_iperf_ctrl.finish = true;
     return ret;
@@ -483,15 +483,16 @@ static esp_err_t iperf_run_udp_server(void)
         iperf_hook_func(IPERF_UDP_SERVER, IPERF_STARTED);
     }
     socket_recv(listen_socket, listen_addr, IPERF_TRANS_TYPE_UDP);
-    if (iperf_hook_func) {
-        iperf_hook_func(IPERF_UDP_SERVER, IPERF_STOPPED);
-    }
+
 exit:
     if (listen_socket != -1) {
         shutdown(listen_socket, 0);
         close(listen_socket);
     }
     ESP_LOGI(TAG, "Udp socket server is closed.");
+    if (iperf_hook_func) {
+        iperf_hook_func(IPERF_UDP_SERVER, IPERF_STOPPED);
+    }
     s_iperf_ctrl.finish = true;
     return ret;
 }
@@ -545,16 +546,17 @@ static esp_err_t iperf_run_udp_client(void)
         iperf_hook_func(IPERF_UDP_CLIENT, IPERF_STARTED);
     }
     socket_send(client_socket, dest_addr, IPERF_TRANS_TYPE_UDP, s_iperf_ctrl.cfg.bw_lim);
-    if (iperf_hook_func) {
-        iperf_hook_func(IPERF_UDP_CLIENT, IPERF_STOPPED);
-    }
+
 exit:
     if (client_socket != -1) {
         shutdown(client_socket, 0);
         close(client_socket);
     }
-    s_iperf_ctrl.finish = true;
     ESP_LOGI(TAG, "UDP Socket client is closed");
+    if (iperf_hook_func) {
+        iperf_hook_func(IPERF_UDP_CLIENT, IPERF_STOPPED);
+    }
+    s_iperf_ctrl.finish = true;
     return ret;
 }
 
