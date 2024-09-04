@@ -33,14 +33,14 @@
 | Type | Name |
 | ---: | :--- |
 | define  | [**IPERF\_DEFAULT\_INTERVAL**](#define-iperf_default_interval)  3<br> |
-| define  | [**IPERF\_DEFAULT\_IPV4\_UDP\_TX\_LEN**](#define-iperf_default_ipv4_udp_tx_len)  (1470)<br> |
-| define  | [**IPERF\_DEFAULT\_IPV6\_UDP\_TX\_LEN**](#define-iperf_default_ipv6_udp_tx_len)  (1450)<br> |
+| define  | [**IPERF\_DEFAULT\_IPV4\_UDP\_TX\_LEN**](#define-iperf_default_ipv4_udp_tx_len)  CONFIG\_IPERF\_DEF\_IPV4\_UDP\_TX\_BUFFER\_LEN<br> |
+| define  | [**IPERF\_DEFAULT\_IPV6\_UDP\_TX\_LEN**](#define-iperf_default_ipv6_udp_tx_len)  CONFIG\_IPERF\_DEF\_IPV6\_UDP\_TX\_BUFFER\_LEN<br> |
 | define  | [**IPERF\_DEFAULT\_NO\_BW\_LIMIT**](#define-iperf_default_no_bw_limit)  -1<br> |
 | define  | [**IPERF\_DEFAULT\_PORT**](#define-iperf_default_port)  5001<br> |
-| define  | [**IPERF\_DEFAULT\_TCP\_RX\_LEN**](#define-iperf_default_tcp_rx_len)  (16 &lt;&lt; 10)<br> |
-| define  | [**IPERF\_DEFAULT\_TCP\_TX\_LEN**](#define-iperf_default_tcp_tx_len)  (16 &lt;&lt; 10)<br> |
+| define  | [**IPERF\_DEFAULT\_TCP\_RX\_LEN**](#define-iperf_default_tcp_rx_len)  CONFIG\_IPERF\_DEF\_TCP\_RX\_BUFFER\_LEN<br> |
+| define  | [**IPERF\_DEFAULT\_TCP\_TX\_LEN**](#define-iperf_default_tcp_tx_len)  CONFIG\_IPERF\_DEF\_TCP\_TX\_BUFFER\_LEN<br> |
 | define  | [**IPERF\_DEFAULT\_TIME**](#define-iperf_default_time)  30<br> |
-| define  | [**IPERF\_DEFAULT\_UDP\_RX\_LEN**](#define-iperf_default_udp_rx_len)  (16 &lt;&lt; 10)<br> |
+| define  | [**IPERF\_DEFAULT\_UDP\_RX\_LEN**](#define-iperf_default_udp_rx_len)  CONFIG\_IPERF\_DEF\_UDP\_RX\_BUFFER\_LEN<br> |
 | define  | [**IPERF\_FLAG\_CLIENT**](#define-iperf_flag_client)  (1)<br> |
 | define  | [**IPERF\_FLAG\_CLR**](#define-iperf_flag_clr) (cfg, flag) ((cfg) &= (~(flag)))<br> |
 | define  | [**IPERF\_FLAG\_SERVER**](#define-iperf_flag_server)  (1 &lt;&lt; 1)<br> |
@@ -197,13 +197,13 @@ ESP\_OK on success
 ### define `IPERF_DEFAULT_IPV4_UDP_TX_LEN`
 
 ```c
-#define IPERF_DEFAULT_IPV4_UDP_TX_LEN (1470)
+#define IPERF_DEFAULT_IPV4_UDP_TX_LEN CONFIG_IPERF_DEF_IPV4_UDP_TX_BUFFER_LEN
 ```
 
 ### define `IPERF_DEFAULT_IPV6_UDP_TX_LEN`
 
 ```c
-#define IPERF_DEFAULT_IPV6_UDP_TX_LEN (1450)
+#define IPERF_DEFAULT_IPV6_UDP_TX_LEN CONFIG_IPERF_DEF_IPV6_UDP_TX_BUFFER_LEN
 ```
 
 ### define `IPERF_DEFAULT_NO_BW_LIMIT`
@@ -221,13 +221,13 @@ ESP\_OK on success
 ### define `IPERF_DEFAULT_TCP_RX_LEN`
 
 ```c
-#define IPERF_DEFAULT_TCP_RX_LEN (16 << 10)
+#define IPERF_DEFAULT_TCP_RX_LEN CONFIG_IPERF_DEF_TCP_RX_BUFFER_LEN
 ```
 
 ### define `IPERF_DEFAULT_TCP_TX_LEN`
 
 ```c
-#define IPERF_DEFAULT_TCP_TX_LEN (16 << 10)
+#define IPERF_DEFAULT_TCP_TX_LEN CONFIG_IPERF_DEF_TCP_TX_BUFFER_LEN
 ```
 
 ### define `IPERF_DEFAULT_TIME`
@@ -239,7 +239,7 @@ ESP\_OK on success
 ### define `IPERF_DEFAULT_UDP_RX_LEN`
 
 ```c
-#define IPERF_DEFAULT_UDP_RX_LEN (16 << 10)
+#define IPERF_DEFAULT_UDP_RX_LEN CONFIG_IPERF_DEF_UDP_RX_BUFFER_LEN
 ```
 
 ### define `IPERF_FLAG_CLIENT`

@@ -20,6 +20,9 @@
 #define APP_TAG "IPERF"
 #endif
 
+#define STR_HELPER(x) #x
+#define STR(x) STR_HELPER(x)
+
 typedef struct {
     struct arg_str *ip;
     struct arg_lit *server;
@@ -185,7 +188,10 @@ esp_err_t iperf_cmd_register_iperf(void)
     iperf_args.ipv6_domain = arg_lit0("V", "ipv6_domain", "Set the domain to IPv6 (send packets over IPv6)");
 #endif
     iperf_args.port = arg_int0("p", "port", "<port>", "server port to listen on/connect to");
-    iperf_args.length = arg_int0("l", "len", "<length>", "Set read/write buffer size");
+    iperf_args.length = arg_int0("l", "len", "<length>", "length of buffer in bytes to write"
+                                                         "(Defaults: TCP=" STR(IPERF_DEFAULT_TCP_TX_LEN)
+                                                         ", IPv4 UDP=" STR(IPERF_DEFAULT_IPV4_UDP_TX_LEN)
+                                                         ", IPv6 UDP=" STR(IPERF_DEFAULT_IPV6_UDP_TX_LEN) ")");
     iperf_args.interval = arg_int0("i", "interval", "<interval>", "seconds between periodic bandwidth reports");
     iperf_args.time = arg_int0("t", "time", "<time>", "time in seconds to transmit for (default 10 secs)");
     iperf_args.bw_limit = arg_int0("b", "bandwidth", "<bandwidth>", "bandwidth to send at in Mbits/sec");
