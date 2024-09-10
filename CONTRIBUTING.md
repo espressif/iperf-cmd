@@ -40,7 +40,7 @@ Your PR may not be published until a new version of this component is released.
 When releasing a new component version we have to:
 
 - Pass build/test with current (latest) version commit.
-- Bump a new version using `cz bump`:
+- Bump a new version using `cz bump`/`./tools/cz_bump.sh`:
 
   ```bash
   git branch -D bump/new_version || true
