@@ -10,7 +10,8 @@ import re
 import subprocess
 
 
-COMMIT_BASE_URL = 'https://github.com/espressif/iperf-cmd/commit/'
+RELEASE_TAG_BASE_URL = 'https://github.com/espressif/iperf-cmd/releases/tag'
+IPERF_COMPONENT_URL = 'https://components.espressif.com/components/espressif/iperf'
 PROJECT_ROOT = pathlib.Path(__file__).resolve().parents[1]
 CZ_OLD_TAG = os.environ['CZ_PRE_CURRENT_TAG_VERSION']
 CZ_NEW_TAG = os.environ['CZ_PRE_NEW_TAG_VERSION']
@@ -36,7 +37,7 @@ def check_repo():
     '''Check current ref tag in repository
     '''
     subprocess.check_call(
-        ['git', 'fetch', '--prune', '--prune-tags'],
+        ['git', 'fetch', '--prune', '--prune-tags', '--force'],
         cwd=PROJECT_ROOT,
         )
 
@@ -54,7 +55,8 @@ def update_changelog():
     # Update ChangeLog
     for component in ['iperf', 'iperf-cmd']:
         git_logs = subprocess.check_output(
-            ['git', 'log', f'{CZ_OLD_TAG}..HEAD', f'{component}'],
+            # ignore merge commits
+            ['git', 'log', '--no-merges', f'{CZ_OLD_TAG}..HEAD', f'{component}'],
             cwd=PROJECT_ROOT,
         ).decode()
 
@@ -64,10 +66,14 @@ def update_changelog():
             commit = COMMIT_PATTERN.match(commit_log).group(0)
             for match in CHANGELOG_PATTERN.finditer(commit_log):
                 if match.group(2):
-                    _changelog = f'- {match.group(2)}: {match.group(3)} ([{commit}]({COMMIT_BASE_URL}{commit}))'
+                    _changelog = f'- {match.group(2)}: {match.group(3)} ([{commit}]({RELEASE_TAG_BASE_URL}{commit}))'
                 else:
-                    _changelog = f'- {match.group(3)} ([{commit}]({COMMIT_BASE_URL}{commit}))'
+                    _changelog = f'- {match.group(3)} ([{commit}]({RELEASE_TAG_BASE_URL}{commit}))'
                 changelogs[CHANGELOG_SECTIONS[match.group(1)]].append(_changelog)
+
+        if component == 'iperf-cmd':
+            _changelog = f'- update dependencies [espressif/iperf]({IPERF_COMPONENT_URL}) to {CZ_NEW_TAG}'
+            changelogs['Updates'].append(_changelog)
 
         # Update changelog file
         with open(str(PROJECT_ROOT / component / 'CHANGELOG.md'), encoding='utf-8') as fr:
@@ -79,7 +85,7 @@ def update_changelog():
             changelog_data.insert(2, f'### {key}\n\n' + '\n'.join(values) + '\n\n')
             changed = True
         if changed:
-            changelog_data.insert(2, f'## [{CZ_NEW_TAG}]({COMMIT_BASE_URL}/{CZ_NEW_TAG})\n\n')
+            changelog_data.insert(2, f'## [{CZ_NEW_TAG}]({RELEASE_TAG_BASE_URL}/{CZ_NEW_TAG})\n\n')
         with open(str(PROJECT_ROOT / component / 'CHANGELOG.md'), 'w', encoding='utf-8') as fw:
             fw.write(''.join(changelog_data))
 

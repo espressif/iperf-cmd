@@ -33,6 +33,6 @@ This repository contains `iperf` command based esp-idf console.
   ```yaml
   dependencies:
     espressif/iperf_cmd:
-      version: "^0.1.2"
+      version: "^0.1.3"
   ```
 - For more details refer [IDF Component Manager](https://docs.espressif.com/projects/idf-component-manager/en/latest/)
