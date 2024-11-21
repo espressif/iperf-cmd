@@ -44,7 +44,7 @@
 | define  | [**IPERF\_FLAG\_CLIENT**](#define-iperf_flag_client)  (1)<br> |
 | define  | [**IPERF\_FLAG\_CLR**](#define-iperf_flag_clr) (cfg, flag) ((cfg) &= (~(flag)))<br> |
 | define  | [**IPERF\_FLAG\_SERVER**](#define-iperf_flag_server)  (1 &lt;&lt; 1)<br> |
-| define  | [**IPERF\_FLAG\_SET**](#define-iperf_flag_set) (cfg, flag) ((cfg) |= (flag))<br> |
+| define  | [**IPERF\_FLAG\_SET**](#define-iperf_flag_set) (cfg, flag) ((cfg) \|= (flag))<br> |
 | define  | [**IPERF\_FLAG\_TCP**](#define-iperf_flag_tcp)  (1 &lt;&lt; 2)<br> |
 | define  | [**IPERF\_FLAG\_UDP**](#define-iperf_flag_udp)  (1 &lt;&lt; 3)<br> |
 | define  | [**IPERF\_IPV4\_ENABLED**](#define-iperf_ipv4_enabled)  LWIP\_IPV4<br> |
