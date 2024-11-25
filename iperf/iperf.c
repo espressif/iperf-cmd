@@ -86,6 +86,8 @@ static void iperf_report_task(void *arg)
     uint32_t time = s_iperf_ctrl.cfg.time;
     TickType_t delay_interval = (interval * 1000) / portTICK_PERIOD_MS;
     uint32_t cur = 0;
+    uint32_t last_len = s_iperf_ctrl.actual_len;
+    uint32_t current_len = 0;
     double average = 0;
     double actual_bandwidth = 0;
     int k = 1;
@@ -95,22 +97,23 @@ static void iperf_report_task(void *arg)
     printf("\nInterval       Bandwidth\n");
     while (!s_iperf_ctrl.finish) {
         vTaskDelay(delay_interval);
+        current_len = s_iperf_ctrl.actual_len;
         switch (s_iperf_ctrl.cfg.format) {
         case KBITS_PER_SEC:
-            actual_bandwidth = (s_iperf_ctrl.actual_len / 1024.0 * 8) / interval;
+            actual_bandwidth = ((current_len - last_len) / 1024.0 * 8) / interval;
             format_ch = 'K';
             break;
         case MBITS_PER_SEC:
             /* pass through */
         default:
-            actual_bandwidth = (s_iperf_ctrl.actual_len / 1024.0 / 1024.0 * 8) / interval;
+            actual_bandwidth = ((current_len - last_len) / 1024.0 / 1024.0 * 8) / interval;
             break;
         }
+        last_len = current_len;
         printf("%2d.0-%2d.0 sec  %.2f %cbits/sec\n", cur, cur + interval, actual_bandwidth, format_ch);
         cur += interval;
         average = ((average * (k - 1) / k) + (actual_bandwidth / k));
         k++;
-        s_iperf_ctrl.actual_len = 0;
         if (cur >= time) {
             printf("%2d.0-%2d.0 sec  %.2f %cbits/sec\n", 0, time, average, format_ch);
             break;
