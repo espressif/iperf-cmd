@@ -44,7 +44,7 @@ void app_main(void)
 
     /* Register commands */
     app_register_sta_basic_commands();
-    ESP_ERROR_CHECK(app_register_iperf_commands());
+    ESP_ERROR_CHECK(iperf_cmd_register_iperf());
 
     printf("\n ==================================================\n");
     printf(" |       Steps to test WiFi throughput            |\n");

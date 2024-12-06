@@ -15,23 +15,31 @@
 | Type | Name |
 | ---: | :--- |
 | struct | [**iperf\_cfg\_t**](#struct-iperf_cfg_t) <br>_Iperf Configuration._ |
-| typedef void(\* | [**iperf\_hook\_func\_t**](#typedef-iperf_hook_func_t)  <br> |
+| typedef int8\_t | [**iperf\_id\_t**](#typedef-iperf_id_t)  <br>_iperf instance ID_ |
+| enum  | [**iperf\_ip\_type\_t**](#enum-iperf_ip_type_t)  <br>_Iperf IP type._ |
 | enum  | [**iperf\_output\_format\_t**](#enum-iperf_output_format_t)  <br>_Iperf output report format._ |
-| enum  | [**iperf\_status\_t**](#enum-iperf_status_t)  <br>_Iperf status._ |
+| typedef void(\* | [**iperf\_report\_handler\_func\_t**](#typedef-iperf_report_handler_func_t)  <br>_iperf report handler function to receive runtime details from iperf_ |
+| struct | [**iperf\_report\_t**](#struct-iperf_report_t) <br>_Structure of common data present in any iperf report._ |
+| enum  | [**iperf\_state\_t**](#enum-iperf_state_t)  <br>_Iperf status._ |
 | enum  | [**iperf\_traffic\_type\_t**](#enum-iperf_traffic_type_t)  <br>_Iperf traffic type._ |
 
 ## Functions
 
 | Type | Name |
 | ---: | :--- |
-|  void | [**iperf\_register\_hook\_func**](#function-iperf_register_hook_func) (iperf\_hook\_func\_t func) <br>_Registers iperf traffic start/stop hook function._ |
-|  esp\_err\_t | [**iperf\_start**](#function-iperf_start) ([**iperf\_cfg\_t**](#struct-iperf_cfg_t) \*cfg) <br>_Iperf traffic start with given config._ |
-|  esp\_err\_t | [**iperf\_stop**](#function-iperf_stop) (void) <br>_Iperf traffic stop._ |
+|  esp\_err\_t | [**iperf\_get\_report**](#function-iperf_get_report) (iperf\_id\_t id, [**iperf\_report\_t**](#struct-iperf_report_t) \*report) <br>_Get the current performance report of instance._ |
+|  esp\_err\_t | [**iperf\_get\_traffic\_type**](#function-iperf_get_traffic_type) (iperf\_id\_t id, iperf\_traffic\_type\_t \*traffic\_type) <br>_Get the traffic type of instance._ |
+|  esp\_err\_t | [**iperf\_register\_report\_handler**](#function-iperf_register_report_handler) (iperf\_id\_t id, iperf\_report\_handler\_func\_t handler, void \*priv) <br>_Set report handler during runtime for instance with given id._ |
+|  iperf\_id\_t | [**iperf\_start\_instance**](#function-iperf_start_instance) (const [**iperf\_cfg\_t**](#struct-iperf_cfg_t) \*cfg) <br>_Start iperf instance._ |
+|  esp\_err\_t | [**iperf\_stop\_instance**](#function-iperf_stop_instance) (iperf\_id\_t id) <br>_Stop iperf instance._ |
 
 ## Macros
 
 | Type | Name |
 | ---: | :--- |
+| define  | [**IPERF\_ALL\_INSTANCES\_ID**](#define-iperf_all_instances_id)  INT8\_MIN<br>_Special ID used to perform actions on all running instances._ |
+| define  | [**IPERF\_DEFAULT\_CONFIG\_CLIENT**](#define-iperf_default_config_client) (proto, ip) <br>_Default config to run iperf in client mode._ |
+| define  | [**IPERF\_DEFAULT\_CONFIG\_SERVER**](#define-iperf_default_config_server) (proto, ip) <br>_Default config to run iperf in server mode._ |
 | define  | [**IPERF\_DEFAULT\_INTERVAL**](#define-iperf_default_interval)  3<br> |
 | define  | [**IPERF\_DEFAULT\_IPV4\_UDP\_TX\_LEN**](#define-iperf_default_ipv4_udp_tx_len)  CONFIG\_IPERF\_DEF\_IPV4\_UDP\_TX\_BUFFER\_LEN<br> |
 | define  | [**IPERF\_DEFAULT\_IPV6\_UDP\_TX\_LEN**](#define-iperf_default_ipv6_udp_tx_len)  CONFIG\_IPERF\_DEF\_IPV6\_UDP\_TX\_BUFFER\_LEN<br> |
@@ -40,30 +48,25 @@
 | define  | [**IPERF\_DEFAULT\_TCP\_RX\_LEN**](#define-iperf_default_tcp_rx_len)  CONFIG\_IPERF\_DEF\_TCP\_RX\_BUFFER\_LEN<br> |
 | define  | [**IPERF\_DEFAULT\_TCP\_TX\_LEN**](#define-iperf_default_tcp_tx_len)  CONFIG\_IPERF\_DEF\_TCP\_TX\_BUFFER\_LEN<br> |
 | define  | [**IPERF\_DEFAULT\_TIME**](#define-iperf_default_time)  30<br> |
+| define  | [**IPERF\_DEFAULT\_TRAFFIC\_TASK\_PRIORITY**](#define-iperf_default_traffic_task_priority)  CONFIG\_IPERF\_DEF\_TRAFFIC\_TASK\_PRIORITY<br> |
 | define  | [**IPERF\_DEFAULT\_UDP\_RX\_LEN**](#define-iperf_default_udp_rx_len)  CONFIG\_IPERF\_DEF\_UDP\_RX\_BUFFER\_LEN<br> |
-| define  | [**IPERF\_FLAG\_CLIENT**](#define-iperf_flag_client)  (1)<br> |
+| define  | [**IPERF\_FLAG\_CLIENT**](#define-iperf_flag_client)  BIT(0)<br> |
 | define  | [**IPERF\_FLAG\_CLR**](#define-iperf_flag_clr) (cfg, flag) ((cfg) &= (~(flag)))<br> |
-| define  | [**IPERF\_FLAG\_SERVER**](#define-iperf_flag_server)  (1 &lt;&lt; 1)<br> |
-| define  | [**IPERF\_FLAG\_SET**](#define-iperf_flag_set) (cfg, flag) ((cfg) |= (flag))<br> |
-| define  | [**IPERF\_FLAG\_TCP**](#define-iperf_flag_tcp)  (1 &lt;&lt; 2)<br> |
-| define  | [**IPERF\_FLAG\_UDP**](#define-iperf_flag_udp)  (1 &lt;&lt; 3)<br> |
+| define  | [**IPERF\_FLAG\_REPORT\_NO\_PRINT**](#define-iperf_flag_report_no_print)  BIT(4)<br> |
+| define  | [**IPERF\_FLAG\_SERVER**](#define-iperf_flag_server)  BIT(1)<br> |
+| define  | [**IPERF\_FLAG\_SET**](#define-iperf_flag_set) (cfg, flag) ((cfg) \|= (flag))<br> |
+| define  | [**IPERF\_FLAG\_TCP**](#define-iperf_flag_tcp)  BIT(2)<br> |
+| define  | [**IPERF\_FLAG\_UDP**](#define-iperf_flag_udp)  BIT(3)<br> |
 | define  | [**IPERF\_IPV4\_ENABLED**](#define-iperf_ipv4_enabled)  LWIP\_IPV4<br> |
 | define  | [**IPERF\_IPV6\_ENABLED**](#define-iperf_ipv6_enabled)  LWIP\_IPV6<br> |
-| define  | [**IPERF\_IP\_TYPE\_IPV4**](#define-iperf_ip_type_ipv4)  0<br> |
-| define  | [**IPERF\_IP\_TYPE\_IPV6**](#define-iperf_ip_type_ipv6)  1<br> |
-| define  | [**IPERF\_MAX\_DELAY**](#define-iperf_max_delay)  64<br> |
 | define  | [**IPERF\_REPORT\_TASK\_NAME**](#define-iperf_report_task_name)  "iperf\_report"<br> |
-| define  | [**IPERF\_REPORT\_TASK\_PRIORITY**](#define-iperf_report_task_priority)  CONFIG\_IPERF\_REPORT\_TASK\_PRIORITY<br> |
+| define  | [**IPERF\_REPORT\_TASK\_PRIORITY**](#define-iperf_report_task_priority)  CONFIG\_IPERF\_DEF\_REPORT\_TASK\_PRIORITY<br> |
 | define  | [**IPERF\_REPORT\_TASK\_STACK**](#define-iperf_report_task_stack)  4096<br> |
 | define  | [**IPERF\_SOCKET\_ACCEPT\_TIMEOUT**](#define-iperf_socket_accept_timeout)  5<br> |
-| define  | [**IPERF\_SOCKET\_RX\_TIMEOUT**](#define-iperf_socket_rx_timeout)  CONFIG\_IPERF\_SOCKET\_RX\_TIMEOUT<br> |
-| define  | [**IPERF\_SOCKET\_TCP\_TX\_TIMEOUT**](#define-iperf_socket_tcp_tx_timeout)  CONFIG\_IPERF\_SOCKET\_TCP\_TX\_TIMEOUT<br> |
+| define  | [**IPERF\_SOCKET\_RX\_TIMEOUT**](#define-iperf_socket_rx_timeout)  CONFIG\_IPERF\_DEF\_SOCKET\_RX\_TIMEOUT<br> |
+| define  | [**IPERF\_SOCKET\_TCP\_TX\_TIMEOUT**](#define-iperf_socket_tcp_tx_timeout)  CONFIG\_IPERF\_DEF\_SOCKET\_TCP\_TX\_TIMEOUT<br> |
 | define  | [**IPERF\_TRAFFIC\_TASK\_NAME**](#define-iperf_traffic_task_name)  "iperf\_traffic"<br> |
-| define  | [**IPERF\_TRAFFIC\_TASK\_PRIORITY**](#define-iperf_traffic_task_priority)  CONFIG\_IPERF\_TRAFFIC\_TASK\_PRIORITY<br> |
 | define  | [**IPERF\_TRAFFIC\_TASK\_STACK**](#define-iperf_traffic_task_stack)  4096<br> |
-| define  | [**IPERF\_TRANS\_TYPE\_TCP**](#define-iperf_trans_type_tcp)  0<br> |
-| define  | [**IPERF\_TRANS\_TYPE\_UDP**](#define-iperf_trans_type_udp)  1<br> |
-| define  | [**app\_register\_iperf\_hook\_func**](#define-app_register_iperf_hook_func)  iperf\_register\_hook\_func<br> |
 
 ## Structures and Types Documentation
 
@@ -73,15 +76,9 @@ _Iperf Configuration._
 
 Variables:
 
--  union iperf\_cfg\_t::@0 @1  
-
--  union iperf\_cfg\_t::@2 @3  
-
 -  int32\_t bw_lim  <br>bandwidth limit in Mbits/s
 
--  uint32\_t destination_ip4  <br>destination ipv4
-
--  char \* destination_ip6  <br>destination ipv6
+-  esp\_ip\_addr\_t destination  <br>destination IP
 
 -  uint16\_t dport  <br>destination port
 
@@ -93,20 +90,33 @@ Variables:
 
 -  uint16\_t len_send_buf  <br>send buffer length in bytes
 
--  uint32\_t source_ip4  <br>source ipv4
+-  iperf\_report\_handler\_func\_t report_handler  <br>iperf status report function
 
--  char \* source_ip6  <br>source ipv6
+-  void \* report_handler_priv  <br>pointer to user's private data later passed to report function
+
+-  esp\_ip\_addr\_t source  <br>source IP
 
 -  uint16\_t sport  <br>source port
 
 -  uint32\_t time  <br>total send time in secs
 
--  uint8\_t type  <br>address type, ipv4 or ipv6
+-  uint8\_t traffic_task_priority  <br>iperf traffic task priority
 
-### typedef `iperf_hook_func_t`
+### typedef `iperf_id_t`
 
+_iperf instance ID_
 ```c
-typedef void(* iperf_hook_func_t) (iperf_traffic_type_t type, iperf_status_t status);
+typedef int8_t iperf_id_t;
+```
+
+### enum `iperf_ip_type_t`
+
+_Iperf IP type._
+```c
+enum iperf_ip_type_t {
+    IPERF_IP_TYPE_IPV4,
+    IPERF_IP_TYPE_IPV6
+};
 ```
 
 ### enum `iperf_output_format_t`
@@ -119,13 +129,40 @@ enum iperf_output_format_t {
 };
 ```
 
-### enum `iperf_status_t`
+### typedef `iperf_report_handler_func_t`
+
+_iperf report handler function to receive runtime details from iperf_
+```c
+typedef void(* iperf_report_handler_func_t) (iperf_id_t id, iperf_state_t iperf_state, void *priv);
+```
+
+### struct `iperf_report_t`
+
+_Structure of common data present in any iperf report._
+
+Variables:
+
+-  float average_bandwidth  <br>average bandwidth from start to end
+
+-  double curr_total_transfer  <br>current data transferred since iperf has started
+
+-  uint32\_t current_time_sec  <br>current time since iperf has started
+
+-  iperf\_output\_format\_t output_format  <br>output format, Mbits or Kbits
+
+-  float period_bandwidth  <br>bandwidth during current interval
+
+-  float period_transfer  <br>data transferred during current interval
+
+### enum `iperf_state_t`
 
 _Iperf status._
 ```c
-enum iperf_status_t {
+enum iperf_state_t {
     IPERF_STARTED,
-    IPERF_STOPPED
+    IPERF_STOPPED,
+    IPERF_RUNNING,
+    IPERF_CLOSED
 };
 ```
 
@@ -144,21 +181,107 @@ enum iperf_traffic_type_t {
 
 ## Functions Documentation
 
-### function `iperf_register_hook_func`
+### function `iperf_get_report`
 
-_Registers iperf traffic start/stop hook function._
+_Get the current performance report of instance._
 ```c
-void iperf_register_hook_func (
-    iperf_hook_func_t func
+esp_err_t iperf_get_report (
+    iperf_id_t id,
+    iperf_report_t *report
 ) 
 ```
 
-### function `iperf_start`
 
-_Iperf traffic start with given config._
+**Warning:**
+
+Not thread safe. Recommended to be used only inside `report_handler` callback and only when iperf state is`IPERF_RUNNING` or`IPERF_CLOSED`.
+
+
+
+**Parameters:**
+
+
+* `id` iperf instance ID 
+* `report` pointer where to copy the report 
+
+
+**Returns:**
+
+
+
+* ESP\_OK on success
+* ESP\_ERR\_INVALID\_ARG if invalid argument
+* ESP\_ERR\_INVALID\_STATE if instance with associated ID was not found
+### function `iperf_get_traffic_type`
+
+_Get the traffic type of instance._
 ```c
-esp_err_t iperf_start (
-    iperf_cfg_t *cfg
+esp_err_t iperf_get_traffic_type (
+    iperf_id_t id,
+    iperf_traffic_type_t *traffic_type
+) 
+```
+
+
+**Note:**
+
+Not thread safe. Recommended to be used only inside `report_handler` callback.
+
+
+
+**Parameters:**
+
+
+* `id` iperf instance ID 
+* `traffic_type` pointer where to store traffic type 
+
+
+**Returns:**
+
+
+
+* ESP\_OK on success
+* ESP\_ERR\_INVALID\_ARG if invalid argument
+* ESP\_ERR\_INVALID\_STATE if instance with associated ID was not found
+### function `iperf_register_report_handler`
+
+_Set report handler during runtime for instance with given id._
+```c
+esp_err_t iperf_register_report_handler (
+    iperf_id_t id,
+    iperf_report_handler_func_t handler,
+    void *priv
+) 
+```
+
+
+**Note:**
+
+This function is not thread safe. Recommended to be used only inside `report_handler` callback.
+
+
+
+**Parameters:**
+
+
+* `id` iperf instance ID 
+* `handler` function pointer to the handler 
+* `priv` pointer to user's private data later passed to the report function
+
+
+**Returns:**
+
+
+
+* ESP\_OK on success
+* ESP\_ERR\_INVALID\_ARG if invalid argument
+* ESP\_ERR\_INVALID\_STATE if instance with associated ID was not found
+### function `iperf_start_instance`
+
+_Start iperf instance._
+```c
+iperf_id_t iperf_start_instance (
+    const iperf_cfg_t *cfg
 ) 
 ```
 
@@ -171,23 +294,99 @@ esp_err_t iperf_start (
 
 **Returns:**
 
-ESP\_OK on success
-### function `iperf_stop`
 
-_Iperf traffic stop._
+
+* iperf instance ID
+* -1 if couldn't start new instance
+### function `iperf_stop_instance`
+
+_Stop iperf instance._
 ```c
-esp_err_t iperf_stop (
-    void
+esp_err_t iperf_stop_instance (
+    iperf_id_t id
 ) 
 ```
 
 
+**Parameters:**
+
+
+* `id` iperf instance ID. Setting to `IPERF_ALL_INSTANCES_ID` stops all running instances
+
+
 **Returns:**
 
-ESP\_OK on success
+
+
+* ESP\_OK on success
+* ESP\_FAIL if instance with given id was not found
+* ESP\_ERR\_INVALID\_ARG if invalid id is provided (id &lt; 0)
 
 ## Macros Documentation
 
+### define `IPERF_ALL_INSTANCES_ID`
+
+_Special ID used to perform actions on all running instances._
+```c
+#define IPERF_ALL_INSTANCES_ID INT8_MIN
+```
+
+
+This macro can be passed to APIs that consume instance IDs to indicate that the action should apply to all running application instances.
+
+
+
+**Note:**
+
+Not all APIs support this special ID. Refer to the specific API documentation to determine whether this feature is supported.
+### define `IPERF_DEFAULT_CONFIG_CLIENT`
+
+_Default config to run iperf in client mode._
+```c
+#define IPERF_DEFAULT_CONFIG_CLIENT (
+    proto,
+    ip
+) {                                           \
+                                                    .flag = proto | IPERF_FLAG_CLIENT,      \
+                                                    .format = MBITS_PER_SEC,                \
+                                                    .interval = IPERF_DEFAULT_INTERVAL,     \
+                                                    .time = IPERF_DEFAULT_TIME,             \
+                                                    .bw_lim = IPERF_DEFAULT_NO_BW_LIMIT,    \
+                                                    .destination = ip,                      \
+                                                    .dport = IPERF_DEFAULT_PORT             \
+                                                }
+```
+
+
+**Parameters:**
+
+
+* `proto` protocol flag (TCP/UDP) 
+* `ip` `esp_ip_addr_t` value of source ip
+### define `IPERF_DEFAULT_CONFIG_SERVER`
+
+_Default config to run iperf in server mode._
+```c
+#define IPERF_DEFAULT_CONFIG_SERVER (
+    proto,
+    ip
+) {                                           \
+                                                    .flag = proto | IPERF_FLAG_SERVER,      \
+                                                    .format = MBITS_PER_SEC,                \
+                                                    .interval = IPERF_DEFAULT_INTERVAL,     \
+                                                    .time = IPERF_DEFAULT_TIME,             \
+                                                    .bw_lim = IPERF_DEFAULT_NO_BW_LIMIT,    \
+                                                    .source = ip,                           \
+                                                    .sport = IPERF_DEFAULT_PORT             \
+                                                }
+```
+
+
+**Parameters:**
+
+
+* `proto` protocol flag (TCP/UDP) 
+* `ip` `esp_ip_addr_t` value of destination ip
 ### define `IPERF_DEFAULT_INTERVAL`
 
 ```c
@@ -236,6 +435,12 @@ ESP\_OK on success
 #define IPERF_DEFAULT_TIME 30
 ```
 
+### define `IPERF_DEFAULT_TRAFFIC_TASK_PRIORITY`
+
+```c
+#define IPERF_DEFAULT_TRAFFIC_TASK_PRIORITY CONFIG_IPERF_DEF_TRAFFIC_TASK_PRIORITY
+```
+
 ### define `IPERF_DEFAULT_UDP_RX_LEN`
 
 ```c
@@ -245,7 +450,7 @@ ESP\_OK on success
 ### define `IPERF_FLAG_CLIENT`
 
 ```c
-#define IPERF_FLAG_CLIENT (1)
+#define IPERF_FLAG_CLIENT BIT(0)
 ```
 
 ### define `IPERF_FLAG_CLR`
@@ -257,10 +462,16 @@ ESP\_OK on success
 ) ((cfg) &= (~(flag)))
 ```
 
+### define `IPERF_FLAG_REPORT_NO_PRINT`
+
+```c
+#define IPERF_FLAG_REPORT_NO_PRINT BIT(4)
+```
+
 ### define `IPERF_FLAG_SERVER`
 
 ```c
-#define IPERF_FLAG_SERVER (1 << 1)
+#define IPERF_FLAG_SERVER BIT(1)
 ```
 
 ### define `IPERF_FLAG_SET`
@@ -275,13 +486,13 @@ ESP\_OK on success
 ### define `IPERF_FLAG_TCP`
 
 ```c
-#define IPERF_FLAG_TCP (1 << 2)
+#define IPERF_FLAG_TCP BIT(2)
 ```
 
 ### define `IPERF_FLAG_UDP`
 
 ```c
-#define IPERF_FLAG_UDP (1 << 3)
+#define IPERF_FLAG_UDP BIT(3)
 ```
 
 ### define `IPERF_IPV4_ENABLED`
@@ -296,24 +507,6 @@ ESP\_OK on success
 #define IPERF_IPV6_ENABLED LWIP_IPV6
 ```
 
-### define `IPERF_IP_TYPE_IPV4`
-
-```c
-#define IPERF_IP_TYPE_IPV4 0
-```
-
-### define `IPERF_IP_TYPE_IPV6`
-
-```c
-#define IPERF_IP_TYPE_IPV6 1
-```
-
-### define `IPERF_MAX_DELAY`
-
-```c
-#define IPERF_MAX_DELAY 64
-```
-
 ### define `IPERF_REPORT_TASK_NAME`
 
 ```c
@@ -323,7 +516,7 @@ ESP\_OK on success
 ### define `IPERF_REPORT_TASK_PRIORITY`
 
 ```c
-#define IPERF_REPORT_TASK_PRIORITY CONFIG_IPERF_REPORT_TASK_PRIORITY
+#define IPERF_REPORT_TASK_PRIORITY CONFIG_IPERF_DEF_REPORT_TASK_PRIORITY
 ```
 
 ### define `IPERF_REPORT_TASK_STACK`
@@ -341,13 +534,13 @@ ESP\_OK on success
 ### define `IPERF_SOCKET_RX_TIMEOUT`
 
 ```c
-#define IPERF_SOCKET_RX_TIMEOUT CONFIG_IPERF_SOCKET_RX_TIMEOUT
+#define IPERF_SOCKET_RX_TIMEOUT CONFIG_IPERF_DEF_SOCKET_RX_TIMEOUT
 ```
 
 ### define `IPERF_SOCKET_TCP_TX_TIMEOUT`
 
 ```c
-#define IPERF_SOCKET_TCP_TX_TIMEOUT CONFIG_IPERF_SOCKET_TCP_TX_TIMEOUT
+#define IPERF_SOCKET_TCP_TX_TIMEOUT CONFIG_IPERF_DEF_SOCKET_TCP_TX_TIMEOUT
 ```
 
 ### define `IPERF_TRAFFIC_TASK_NAME`
@@ -356,34 +549,10 @@ ESP\_OK on success
 #define IPERF_TRAFFIC_TASK_NAME "iperf_traffic"
 ```
 
-### define `IPERF_TRAFFIC_TASK_PRIORITY`
-
-```c
-#define IPERF_TRAFFIC_TASK_PRIORITY CONFIG_IPERF_TRAFFIC_TASK_PRIORITY
-```
-
 ### define `IPERF_TRAFFIC_TASK_STACK`
 
 ```c
 #define IPERF_TRAFFIC_TASK_STACK 4096
-```
-
-### define `IPERF_TRANS_TYPE_TCP`
-
-```c
-#define IPERF_TRANS_TYPE_TCP 0
-```
-
-### define `IPERF_TRANS_TYPE_UDP`
-
-```c
-#define IPERF_TRANS_TYPE_UDP 1
-```
-
-### define `app_register_iperf_hook_func`
-
-```c
-#define app_register_iperf_hook_func iperf_register_hook_func
 ```
 
 
