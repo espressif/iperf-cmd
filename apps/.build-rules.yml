@@ -10,3 +10,9 @@ apps/iperf:
     # build specific configuration for only one target
     - if: IDF_TARGET != "esp32" and CONFIG_NAME == "ipv4_only"
     - if: IDF_TARGET != "esp32c3" and CONFIG_NAME == "ipv6_only"
+
+apps/test_apps/loopback:
+  disable:
+    - if: IDF_VERSION_MAJOR < 5 or IDF_TARGET in ["esp32h21", "linux"]
+      temporary: true
+      reason: Tests are not ready yet
