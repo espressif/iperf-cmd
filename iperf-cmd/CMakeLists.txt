@@ -1,6 +1,6 @@
 set(srcs  "iperf_cmd.c")
 
-set(priv_requires console esp_netif iperf)
+set(priv_requires console iperf esp_netif)
 
 idf_component_register(SRCS "${srcs}"
                     INCLUDE_DIRS "include"

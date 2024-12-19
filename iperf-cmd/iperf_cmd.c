@@ -23,7 +23,11 @@
 #define STR_HELPER(x) #x
 #define STR(x) STR_HELPER(x)
 
+#define IPERF_CMD_INSTANCE_USE_IPV4    1
+#define IPERF_CMD_INSTANCE_USE_IPV6    2
+
 typedef struct {
+    struct arg_lit *help;
     struct arg_str *ip;
     struct arg_lit *server;
     struct arg_lit *udp;
@@ -31,19 +35,26 @@ typedef struct {
     struct arg_lit *ipv6_domain;
 #endif
     struct arg_int *port;
+    struct arg_str *bind;
+    struct arg_int *cport;
     struct arg_int *length;
     struct arg_int *interval;
     struct arg_int *time;
     struct arg_int *bw_limit;
     struct arg_str *format;
     struct arg_lit *abort;
+    struct arg_int *id;
     struct arg_end *end;
 } iperf_args_t;
+
 static iperf_args_t iperf_args;
+static iperf_report_handler_func_t s_report_hndl;
+static void *s_report_priv;
 
 static int cmd_do_iperf(int argc, char **argv)
 {
     int nerrors = arg_parse(argc, argv, (void **) &iperf_args);
+    int error = 0;
     iperf_cfg_t cfg;
 
     if (nerrors != 0) {
@@ -51,22 +62,29 @@ static int cmd_do_iperf(int argc, char **argv)
         return 0;
     }
 
-    if (iperf_args.abort->count != 0) {
-        iperf_stop();
+    if (iperf_args.help->count != 0) {
+        printf("Usage: iperf");
+        arg_print_syntax(stdout, (void *) &iperf_args, "\n\n");
+        arg_print_glossary(stdout, (void *) &iperf_args, "  %-30s %s\n");
         return 0;
     }
 
-    if (g_iperf_is_running) {
-        ESP_LOGE(APP_TAG, "iperf is already running.");
-        return 1;
+    if (iperf_args.abort->count != 0) {
+        if(iperf_args.id->count == 0) {
+            iperf_stop_instance(IPERF_ALL_INSTANCES_ID);
+        } else {
+            iperf_stop_instance(iperf_args.id->ival[0]);
+        }
+        return 0;
     }
 
     memset(&cfg, 0, sizeof(cfg));
 
-    cfg.type = IPERF_IP_TYPE_IPV4;
+    uint8_t instance_type = IPERF_CMD_INSTANCE_USE_IPV4;
 #if IPERF_IPV6_ENABLED
     if (iperf_args.ipv6_domain->count > 0) {
-        cfg.type = IPERF_IP_TYPE_IPV6;
+        instance_type = IPERF_CMD_INSTANCE_USE_IPV6;
+        return 0;
     }
 #endif
 
@@ -81,16 +99,19 @@ static int cmd_do_iperf(int argc, char **argv)
     } else {
         cfg.flag |= IPERF_FLAG_CLIENT;
 #if IPERF_IPV6_ENABLED
-        if (cfg.type == IPERF_IP_TYPE_IPV6) {
-            /* TODO: Refactor iperf config structure in v1.0 */
-            cfg.destination_ip6 = (char*)(iperf_args.ip->sval[0]);
+        if (instance_type == IPERF_CMD_INSTANCE_USE_IPV6) {
+            error = inet_pton(AF_INET6, (char*)(iperf_args.ip->sval[0]), &cfg.destination.u_addr.ip6.addr);
         }
 #endif
 #if IPERF_IPV4_ENABLED
-        if (cfg.type == IPERF_IP_TYPE_IPV4) {
-            cfg.destination_ip4 = esp_ip4addr_aton(iperf_args.ip->sval[0]);
+        if (instance_type == IPERF_CMD_INSTANCE_USE_IPV4) {
+            error = inet_pton(AF_INET, (char*)(iperf_args.ip->sval[0]), &cfg.destination.u_addr.ip4.addr);
         }
 #endif
+        if (error == 0) {
+            ESP_LOGE(APP_TAG, "invalid destination address");
+            return 0;
+        }
     }
 
     if (iperf_args.udp->count == 0) {
@@ -105,16 +126,37 @@ static int cmd_do_iperf(int argc, char **argv)
         cfg.len_send_buf = iperf_args.length->ival[0];
     }
 
-    if (iperf_args.port->count == 0) {
-        cfg.sport = IPERF_DEFAULT_PORT;
-        cfg.dport = IPERF_DEFAULT_PORT;
-    } else {
-        if (cfg.flag & IPERF_FLAG_SERVER) {
+    if (iperf_args.bind->count != 0) {
+#if IPERF_IPV6_ENABLED
+        if (instance_type == IPERF_CMD_INSTANCE_USE_IPV6) {
+            error = inet_pton(AF_INET6, (char*)(iperf_args.bind->sval[0]), &cfg.source.u_addr.ip6.addr);
+        }
+#endif
+#if IPERF_IPV4_ENABLED
+        if (instance_type == IPERF_CMD_INSTANCE_USE_IPV4) {
+            error = inet_pton(AF_INET, (char*)(iperf_args.bind->sval[0]), &cfg.source.u_addr.ip4.addr);
+        }
+#endif
+        if (error == 0) {
+            ESP_LOGE(APP_TAG, "invalid address to bind");
+            return 0;
+        }
+    }
+
+    if (cfg.flag & IPERF_FLAG_SERVER) {
+        if (iperf_args.port->count == 0) {
+            cfg.sport = IPERF_DEFAULT_PORT;
+        } else {
             cfg.sport = iperf_args.port->ival[0];
+        }
+    } else { // IPERF_FLAG_CLIENT
+        if (iperf_args.port->count == 0) {
             cfg.dport = IPERF_DEFAULT_PORT;
         } else {
-            cfg.sport = IPERF_DEFAULT_PORT;
             cfg.dport = iperf_args.port->ival[0];
+        }
+        if (iperf_args.cport->count != 0) {
+            cfg.sport = iperf_args.cport->ival[0];
         }
     }
 
@@ -157,25 +199,61 @@ static int cmd_do_iperf(int argc, char **argv)
         }
     }
 
-    ESP_LOGI(APP_TAG, "mode=%s-%s sip=%s:%" PRId32 ", dip=%s:%" PRId32 ", interval=%" PRId32 ", time=%" PRId32,
+    cfg.report_handler = s_report_hndl;
+    cfg.report_handler_priv = s_report_priv;
+
+#if IPERF_IPV6_ENABLED
+    char dip_str[INET6_ADDRSTRLEN];
+    char sip_str[INET6_ADDRSTRLEN];
+#elif IPERF_IPV4_ENABLED
+    char dip_str[INET_ADDRSTRLEN];
+    char sip_str[INET_ADDRSTRLEN];
+#endif
+#if IPERF_IPV6_ENABLED
+    if (instance_type == IPERF_CMD_INSTANCE_USE_IPV6) {
+        inet_ntop(AF_INET6, &cfg.destination.u_addr.ip6.addr, dip_str, sizeof(dip_str));
+        inet_ntop(AF_INET6, &cfg.source.u_addr.ip6.addr, sip_str, sizeof(sip_str));
+    }
+#endif
+#if IPERF_IPV4_ENABLED
+    if (instance_type == IPERF_CMD_INSTANCE_USE_IPV4) {
+        inet_ntop(AF_INET, &cfg.destination.u_addr.ip4.addr, dip_str, sizeof(dip_str));
+        inet_ntop(AF_INET, &cfg.source.u_addr.ip4.addr, sip_str, sizeof(sip_str));
+    }
+#endif
+
+    // Following the convention IPv6 address must be in square brackets if followed by a port
+    // aaaa:bbbb:cccc:dddd:eeee:ffff:gggg:hhhh:PORT - wrong
+    // [aaaa:bbbb:cccc:dddd:eeee:ffff:gggg:hhhh]:PORT - right
+    ESP_LOGI(APP_TAG, "mode=%s-%s sip=%s%s%s:%" PRId32 ", dip=%s%s%s:%" PRId32 ", interval=%" PRId32 ", time=%" PRId32,
              cfg.flag & IPERF_FLAG_TCP ? "tcp" : "udp",
              cfg.flag & IPERF_FLAG_SERVER ? "server" : "client",
-             "localhost", cfg.sport,
-#if IPERF_IPV4_ENABLED
-             cfg.type == IPERF_IP_TYPE_IPV6? cfg.destination_ip6 : inet_ntoa(cfg.destination_ip4), cfg.dport,
-#else
-             cfg.type == IPERF_IP_TYPE_IPV6? cfg.destination_ip6 : "0.0.0.0", cfg.dport,
-#endif
+             instance_type == IPERF_CMD_INSTANCE_USE_IPV6 ? "[" : "",
+             sip_str,
+             instance_type == IPERF_CMD_INSTANCE_USE_IPV6 ? "]" : "",
+             cfg.sport,
+             instance_type == IPERF_CMD_INSTANCE_USE_IPV6 ? "[" : "",
+             dip_str,
+             instance_type == IPERF_CMD_INSTANCE_USE_IPV6 ? "]" : "",
+             cfg.dport,
              cfg.interval, cfg.time);
 
-    iperf_start(&cfg);
+    iperf_start_instance(&cfg);
 
     return 0;
+}
+
+esp_err_t iperf_cmd_register_report_handler(iperf_report_handler_func_t report_hndl, void *priv)
+{
+    s_report_hndl = report_hndl;
+    s_report_priv = priv;
+    return ESP_OK;
 }
 
 esp_err_t iperf_cmd_register_iperf(void)
 {
     /* same with official iperf: https://iperf.fr/iperf-doc.php */
+    iperf_args.help = arg_lit0(NULL, "help", "display this help and exit");
     iperf_args.ip = arg_str0("c", "client", "<host>", "run in client mode, connecting to <host>");
     iperf_args.server = arg_lit0("s", "server", "run in server mode");
     iperf_args.udp = arg_lit0("u", "udp", "use UDP rather than TCP");
@@ -188,6 +266,8 @@ esp_err_t iperf_cmd_register_iperf(void)
     iperf_args.ipv6_domain = arg_lit0("V", "ipv6_domain", "Set the domain to IPv6 (send packets over IPv6)");
 #endif
     iperf_args.port = arg_int0("p", "port", "<port>", "server port to listen on/connect to");
+    iperf_args.bind = arg_str0("B", "bind", "<host>", "bind to interface at <host> address");
+    iperf_args.cport = arg_int0(NULL, "cport", "<port>", "bind to a specific client port");
     iperf_args.length = arg_int0("l", "len", "<length>", "length of buffer in bytes to write"
                                                          "(Defaults: TCP=" STR(IPERF_DEFAULT_TCP_TX_LEN)
                                                          ", IPv4 UDP=" STR(IPERF_DEFAULT_IPV4_UDP_TX_LEN)
@@ -198,6 +278,7 @@ esp_err_t iperf_cmd_register_iperf(void)
     iperf_args.format = arg_str0("f", "format", "<format>", "'k' = Kbits/sec 'm' = Mbits/sec");
     /* abort is not an official option */
     iperf_args.abort = arg_lit0(NULL, "abort", "abort running iperf");
+    iperf_args.id = arg_int0(NULL, "id", "<id>", "ID of iperf instance. `all` if omitted.");
     iperf_args.end = arg_end(1);
     const esp_console_cmd_t iperf_cmd = {
         .command = "iperf",
@@ -206,6 +287,5 @@ esp_err_t iperf_cmd_register_iperf(void)
         .func = &cmd_do_iperf,
         .argtable = &iperf_args
     };
-
     return esp_console_cmd_register(&iperf_cmd);
 }
