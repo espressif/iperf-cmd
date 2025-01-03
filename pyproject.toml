@@ -1,0 +1,43 @@
+[tool]
+    [tool.codespell]
+        skip = "tests"
+
+    [tool.ruff]
+        extend-exclude = [] # Exclude specific paths to extend the default Ruff exclusion list
+        format.quote-style = "single" # Specifies the quote style for strings in the codebase
+        line-length = 120 # Specifies the maximum line length for ruff checks
+        lint.exclude = ["tests/**/*"] # Exclude specific paths from linting (only linting, formatting will still work)
+        lint.ignore = [
+            "S603",      # Check for execution of untrusted input
+            "S607",      # Starting a process with a partial executable path
+            "S101",      # Use of `assert` detected
+        ]
+        lint.isort.force-single-line = true # Forces all imports to be placed on individual lines, improving readability and reducing merge conflicts.
+        lint.isort.lines-between-types = 1 # Ensures there is one blank line between different types of imports (e.g., standard library, third-party, local imports).
+        lint.select = [
+            "A",    # flake8-builtins: Check for python builtins being used as variables or parameters
+            "B",    # Bugbear: Enforces additional linting rules aimed at catching common bugs and design issues.
+            "C4",   # Comprehensions: Checks for issues related to list comprehensions and generator expressions.
+            "C901", # Enables McCabe's complexity checks.
+            "E",    # pycodestyle Error: Enforces PEP 8 error checks related to formatting and code style.
+            "F",    # Pyflakes: Detects common errors like unused imports, undefined variables, and more.
+            "I",    # Isort: Ensures that imports are sorted and grouped correctly.
+            "N",    # Pep8 Naming: Enforces PEP 8 naming conventions.
+            "PL",   # Pylint: Enforces a wide range of linting rules to ensure code consistency and maintainability.
+            "S",    # Security: Includes security-related linting rules from the Bandit plugin.
+            "UP",   # pyupgrade: Checks for outdated Python syntax and suggests modern replacements.
+            "W",    # pycodestyle Warning: Enforces PEP 8 warnings, such as trailing whitespace or missing newlines.
+        ]
+
+    [tool.mypy]
+        python_version = "3.11"
+        disallow_incomplete_defs = false
+        disallow_untyped_defs = true
+        ignore_missing_imports = true
+        warn_no_return = true
+        warn_return_any = true
+        pretty = true
+        exclude = [
+            "^build/.*",
+            "^dist/.*",
+        ]

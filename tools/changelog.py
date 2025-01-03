@@ -1,14 +1,17 @@
 #!/usr/bin/env python
-# SPDX-FileCopyrightText: 2024 Espressif Systems (Shanghai) CO LTD
+# SPDX-FileCopyrightText: 2024-2025 Espressif Systems (Shanghai) CO LTD
 # SPDX-License-Identifier: Apache-2.0
-'''
+"""
 Update CHANGELOG file
-'''
+"""
+
 import os
 import pathlib
 import re
 import subprocess
 
+from typing import Dict
+from typing import List
 
 RELEASE_TAG_BASE_URL = 'https://github.com/espressif/iperf-cmd/releases/tag'
 IPERF_COMPONENT_URL = 'https://components.espressif.com/components/espressif/iperf'
@@ -28,18 +31,17 @@ CHANGELOG_SECTIONS = {
     'revert': 'Updates',
 }
 CHANGELOG_TITLES = ['Features', 'Bug Fixes', 'Updates', 'Breaking Changes']
-assert all((v in CHANGELOG_TITLES for v in CHANGELOG_SECTIONS.values()))
+assert all(v in CHANGELOG_TITLES for v in CHANGELOG_SECTIONS.values())
 CHANGELOG_PATTERN = re.compile(rf'({"|".join(CHANGELOG_SECTIONS.keys())})(\([^\)]+\))?:\s*([^\n]+)')
 COMMIT_PATTERN = re.compile(r'^[0-9a-f]{8}')
 
 
-def check_repo():
-    '''Check current ref tag in repository
-    '''
+def check_repo() -> None:
+    """Check current ref tag in repository"""
     subprocess.check_call(
         ['git', 'fetch', '--prune', '--prune-tags', '--force'],
         cwd=PROJECT_ROOT,
-        )
+    )
 
     # Check old_ref in repository
     ref_tags = subprocess.check_output(
@@ -49,9 +51,8 @@ def check_repo():
     assert CZ_OLD_TAG in ref_tags
 
 
-def update_changelog():
-    """Update Changelog files in iperf/iperf-cmd from git history
-    """
+def update_changelog() -> None:
+    """Update Changelog files in iperf/iperf-cmd from git history"""
     # Update ChangeLog
     for component in ['iperf', 'iperf-cmd']:
         git_logs = subprocess.check_output(
@@ -60,10 +61,12 @@ def update_changelog():
             cwd=PROJECT_ROOT,
         ).decode()
 
-        changelogs = {k: [] for k in CHANGELOG_TITLES[::-1]}
+        changelogs: Dict[str, List[str]] = {k: [] for k in CHANGELOG_TITLES[::-1]}
         # Get possible changelogs from title and notes.
         for commit_log in git_logs.split('commit ')[1:]:
-            commit = COMMIT_PATTERN.match(commit_log).group(0)
+            _commit_match = COMMIT_PATTERN.match(commit_log)
+            assert _commit_match
+            commit = _commit_match.group(0)
             for match in CHANGELOG_PATTERN.finditer(commit_log):
                 if match.group(2):
                     _changelog = f'- {match.group(2)}: {match.group(3)} ([{commit}]({RELEASE_TAG_BASE_URL}{commit}))'
