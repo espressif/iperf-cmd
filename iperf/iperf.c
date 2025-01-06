@@ -389,7 +389,7 @@ IRAM_ATTR static esp_err_t iperf_client_loop(iperf_instance_data_t *iperf_instan
         *pkt_id_p = htonl(pkt_cnt++); // datagrams need to be sequentially numbered
         int actual_send = sendto(iperf_instance->socket, iperf_instance->socket_info.buffer, want_send,
                                  0, (struct sockaddr *) &iperf_instance->socket_info.target_addr, addr_len);
-        if (actual_send != want_send) {
+        if (actual_send != want_send && iperf_instance->is_running) {
             if (iperf_instance->flags & IPERF_FLAG_UDP) {
                 // ENOMEM & ENOBUFS is expected under heavy load => do not print it
                 if ((errno != ENOMEM) && (errno != ENOBUFS)) {
@@ -437,7 +437,7 @@ IRAM_ATTR static esp_err_t iperf_server_loop(iperf_instance_data_t *iperf_instan
         actual_recv = recvfrom(iperf_instance->socket, iperf_instance->socket_info.buffer, want_recv, 0,
                                (struct sockaddr *)&iperf_instance->socket_info.target_addr, &socklen);
 
-        if (actual_recv == -1) {
+        if (actual_recv == -1 && iperf_instance->is_running) {
             iperf_show_socket_error_reason(iperf_instance, error_log);
             ret = ESP_FAIL;
             goto err;
