@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2024-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -29,7 +29,7 @@ static const char *TAG = "iperf_test";
 #define IPERF_CLIENT_RUNNING_BIT   BIT(6)
 #define IPERF_CLIENT_CLOSE_BIT     BIT(7)
 
-#define BW_TEST_MARGIN              (5)
+#define BW_TEST_MARGIN_FACTOR       (0.5)
 
 // older versions of unity don't have these types of test assertions
 #ifndef TEST_ASSERT_GREATER_OR_EQUAL_FLOAT
@@ -57,13 +57,13 @@ static void iperf_server_report_cb(iperf_id_t id, iperf_state_t iperf_state, voi
         xEventGroupSetBits(event_group, IPERF_SERVER_START_BIT);
         break;
     case IPERF_STOPPED:
-        iperf_get_report(id, &iperf_data->server_report);
         xEventGroupSetBits(event_group, IPERF_SERVER_STOP_BIT);
         break;
     case IPERF_RUNNING:
         xEventGroupSetBits(event_group, IPERF_SERVER_RUNNING_BIT);
         break;
     case IPERF_CLOSED:
+        iperf_get_report(id, &iperf_data->server_report);
         xEventGroupSetBits(event_group, IPERF_SERVER_CLOSE_BIT);
         break;
     default:
@@ -81,13 +81,13 @@ static void iperf_client_report_cb(iperf_id_t id, iperf_state_t iperf_state, voi
         xEventGroupSetBits(event_group, IPERF_CLIENT_START_BIT);
         break;
     case IPERF_STOPPED:
-        iperf_get_report(id, &iperf_data->client_report);
         xEventGroupSetBits(event_group, IPERF_CLIENT_STOP_BIT);
         break;
     case IPERF_RUNNING:
         xEventGroupSetBits(event_group, IPERF_CLIENT_RUNNING_BIT);
         break;
     case IPERF_CLOSED:
+        iperf_get_report(id, &iperf_data->client_report);
         xEventGroupSetBits(event_group, IPERF_CLIENT_CLOSE_BIT);
         break;
     default:
@@ -137,11 +137,14 @@ static void udp_basic_test(esp_ip_addr_t esp_addr_any, esp_ip_addr_t esp_addr_lo
     char units = iperf_data.client_report.output_format == MBITS_PER_SEC ? 'M' : 'K';
     ESP_LOGI(TAG, "average client throughput: %.2lf %cbps", iperf_data.client_report.average_bandwidth, units);
     ESP_LOGI(TAG, "average server throughput: %.2lf %cbps", iperf_data.server_report.average_bandwidth, units);
+    TEST_ASSERT_GREATER_THAN_FLOAT(0, iperf_data.client_report.average_bandwidth);
+    TEST_ASSERT_GREATER_THAN_FLOAT(0, iperf_data.server_report.average_bandwidth);
     TEST_ASSERT_FLOAT_WITHIN(0.5, iperf_data.client_report.average_bandwidth, iperf_data.server_report.average_bandwidth);
 
     ESP_LOGI(TAG, "-----------------");
     ESP_LOGI(TAG, "UDP bind - client");
     ESP_LOGI(TAG, "-----------------");
+    vTaskDelay(pdMS_TO_TICKS(100)); // invoke context switch to iperf finishes its closure (to get expected instance IDs, note that it doesn't matter in real life)
     udp_client_cfg.source = esp_addr_loopback;
     udp_client_cfg.sport = 6666;
 
@@ -159,11 +162,14 @@ static void udp_basic_test(esp_ip_addr_t esp_addr_any, esp_ip_addr_t esp_addr_lo
 
     ESP_LOGI(TAG, "average client throughput: %.2lf %cbps", iperf_data.client_report.average_bandwidth, units);
     ESP_LOGI(TAG, "average server throughput: %.2lf %cbps", iperf_data.server_report.average_bandwidth, units);
+    TEST_ASSERT_GREATER_THAN_FLOAT(0, iperf_data.client_report.average_bandwidth);
+    TEST_ASSERT_GREATER_THAN_FLOAT(0, iperf_data.server_report.average_bandwidth);
     TEST_ASSERT_FLOAT_WITHIN(0.5, iperf_data.client_report.average_bandwidth, iperf_data.server_report.average_bandwidth);
 
     ESP_LOGI(TAG, "-----------------");
     ESP_LOGI(TAG, "UDP bind - server");
     ESP_LOGI(TAG, "-----------------");
+    vTaskDelay(pdMS_TO_TICKS(100)); // invoke context switch to iperf finishes its closure (to get expected instance IDs, note that it doesn't matter in real life)
     udp_server_cfg.source = esp_addr_loopback;
     udp_client_cfg.source = esp_addr_loopback;
     udp_client_cfg.sport = 6666;
@@ -182,16 +188,19 @@ static void udp_basic_test(esp_ip_addr_t esp_addr_any, esp_ip_addr_t esp_addr_lo
 
     ESP_LOGI(TAG, "average client throughput: %.2lf %cbps", iperf_data.client_report.average_bandwidth, units);
     ESP_LOGI(TAG, "average server throughput: %.2lf %cbps", iperf_data.server_report.average_bandwidth, units);
+    TEST_ASSERT_GREATER_THAN_FLOAT(0, iperf_data.client_report.average_bandwidth);
+    TEST_ASSERT_GREATER_THAN_FLOAT(0, iperf_data.server_report.average_bandwidth);
     TEST_ASSERT_FLOAT_WITHIN(0.5, iperf_data.client_report.average_bandwidth, iperf_data.server_report.average_bandwidth);
 
     ESP_LOGI(TAG, "------------------------------------------------------------");
     ESP_LOGI(TAG, "bind server to address which differs to client's destination");
     ESP_LOGI(TAG, "------------------------------------------------------------");
+    vTaskDelay(pdMS_TO_TICKS(100)); // invoke context switch to iperf finishes its closure (to get expected instance IDs, note that it doesn't matter in real life)
     // => server does not receive any data
     udp_server_cfg.source = esp_addr_err;
 
     // store the previous bandwidth to get idea what to expect
-    float average_bw_prev = iperf_data.client_report.average_bandwidth - BW_TEST_MARGIN;
+    float average_bw_prev = iperf_data.client_report.average_bandwidth * BW_TEST_MARGIN_FACTOR;
     memset(&iperf_data.client_report, 0, sizeof(iperf_report_t));
     memset(&iperf_data.server_report, 0, sizeof(iperf_report_t));
 
@@ -215,6 +224,7 @@ static void udp_basic_test(esp_ip_addr_t esp_addr_any, esp_ip_addr_t esp_addr_lo
     ESP_LOGI(TAG, "----------------------");
     ESP_LOGI(TAG, "start the client first");
     ESP_LOGI(TAG, "----------------------");
+    vTaskDelay(pdMS_TO_TICKS(100)); // invoke context switch to iperf finishes its closure (to get expected instance IDs, note that it doesn't matter in real life)
     udp_server_cfg.source = esp_addr_any;
 
     memset(&iperf_data.client_report, 0, sizeof(iperf_report_t));
@@ -238,6 +248,7 @@ static void udp_basic_test(esp_ip_addr_t esp_addr_any, esp_ip_addr_t esp_addr_lo
 
     TEST_ESP_OK(esp_event_loop_delete_default());
     vEventGroupDelete(iperf_event_group);
+    vTaskDelay(pdMS_TO_TICKS(100)); // invoke context switch to iperf finishes its closure (to get expected instance IDs, note that it doesn't matter in real life)
 }
 
 static void tcp_basic_test(esp_ip_addr_t esp_addr_any, esp_ip_addr_t esp_addr_loopback, esp_ip_addr_t esp_addr_err)
@@ -283,11 +294,14 @@ static void tcp_basic_test(esp_ip_addr_t esp_addr_any, esp_ip_addr_t esp_addr_lo
     char units = iperf_data.client_report.output_format == MBITS_PER_SEC ? 'M' : 'K';
     ESP_LOGI(TAG, "average client throughput: %.2lf %cbps\n", iperf_data.client_report.average_bandwidth, units);
     ESP_LOGI(TAG, "average server throughput: %.2lf %cbps", iperf_data.server_report.average_bandwidth, units);
+    TEST_ASSERT_GREATER_THAN_FLOAT(0, iperf_data.client_report.average_bandwidth);
+    TEST_ASSERT_GREATER_THAN_FLOAT(0, iperf_data.server_report.average_bandwidth);
     TEST_ASSERT_FLOAT_WITHIN(0.5, iperf_data.client_report.average_bandwidth, iperf_data.server_report.average_bandwidth);
 
     ESP_LOGI(TAG, "-----------------");
     ESP_LOGI(TAG, "TCP bind - client");
     ESP_LOGI(TAG, "-----------------");
+    vTaskDelay(pdMS_TO_TICKS(100)); // invoke context switch to iperf finishes its closure (to get expected instance IDs, note that it doesn't matter in real life)
     udp_client_cfg.source = esp_addr_loopback;
     udp_client_cfg.sport = 6666;
 
@@ -306,11 +320,14 @@ static void tcp_basic_test(esp_ip_addr_t esp_addr_any, esp_ip_addr_t esp_addr_lo
 
     ESP_LOGI(TAG, "average client throughput: %.2lf %cbps", iperf_data.client_report.average_bandwidth, units);
     ESP_LOGI(TAG, "average server throughput: %.2lf %cbps", iperf_data.server_report.average_bandwidth, units);
+    TEST_ASSERT_GREATER_THAN_FLOAT(0, iperf_data.client_report.average_bandwidth);
+    TEST_ASSERT_GREATER_THAN_FLOAT(0, iperf_data.server_report.average_bandwidth);
     TEST_ASSERT_FLOAT_WITHIN(0.5, iperf_data.client_report.average_bandwidth, iperf_data.server_report.average_bandwidth);
 
     ESP_LOGI(TAG, "-----------------");
     ESP_LOGI(TAG, "TCP bind - server");
     ESP_LOGI(TAG, "-----------------");
+    vTaskDelay(pdMS_TO_TICKS(100)); // invoke context switch to iperf finishes its closure (to get expected instance IDs, note that it doesn't matter in real life)
     udp_server_cfg.source = esp_addr_loopback;
     udp_client_cfg.source = esp_addr_loopback;
     udp_client_cfg.sport = 6666;
@@ -330,11 +347,14 @@ static void tcp_basic_test(esp_ip_addr_t esp_addr_any, esp_ip_addr_t esp_addr_lo
 
     ESP_LOGI(TAG, "average client throughput: %.2lf %cbps", iperf_data.client_report.average_bandwidth, units);
     ESP_LOGI(TAG, "average server throughput: %.2lf %cbps", iperf_data.server_report.average_bandwidth, units);
+    TEST_ASSERT_GREATER_THAN_FLOAT(0, iperf_data.client_report.average_bandwidth);
+    TEST_ASSERT_GREATER_THAN_FLOAT(0, iperf_data.server_report.average_bandwidth);
     TEST_ASSERT_FLOAT_WITHIN(0.5, iperf_data.client_report.average_bandwidth, iperf_data.server_report.average_bandwidth);
 
     ESP_LOGI(TAG, "------------------------------------------------------------");
     ESP_LOGI(TAG, "bind server to address which differs to client's destination");
     ESP_LOGI(TAG, "------------------------------------------------------------");
+    vTaskDelay(pdMS_TO_TICKS(100)); // invoke context switch to iperf finishes its closure (to get expected instance IDs, note that it doesn't matter in real life)
     // => client cannot connect
     udp_server_cfg.source = esp_addr_err;
 
@@ -360,6 +380,7 @@ static void tcp_basic_test(esp_ip_addr_t esp_addr_any, esp_ip_addr_t esp_addr_lo
     ESP_LOGI(TAG, "----------------------");
     ESP_LOGI(TAG, "start the client first");
     ESP_LOGI(TAG, "----------------------");
+    vTaskDelay(pdMS_TO_TICKS(100)); // invoke context switch to iperf finishes its closure (to get expected instance IDs, note that it doesn't matter in real life)
     udp_server_cfg.source = esp_addr_any;
 
     memset(&iperf_data.client_report, 0, sizeof(iperf_report_t));
@@ -382,6 +403,7 @@ static void tcp_basic_test(esp_ip_addr_t esp_addr_any, esp_ip_addr_t esp_addr_lo
 
     TEST_ESP_OK(esp_event_loop_delete_default());
     vEventGroupDelete(iperf_event_group);
+    vTaskDelay(pdMS_TO_TICKS(100)); // invoke context switch to iperf finishes its closure (to get expected instance IDs, note that it doesn't matter in real life)
 }
 
 TEST_CASE("iperf - UDP IPv4 basics", "[iperf]")
@@ -418,5 +440,6 @@ TEST_CASE("iperf - TCP IPv6 basics", "[iperf]")
 
 void app_main(void)
 {
+    vTaskPrioritySet(NULL, 10); // set higher than iperf default to not affect test flow
     unity_run_menu();
 }
