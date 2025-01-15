@@ -1,0 +1,3 @@
+pytest-embedded-serial-esp
+pytest-embedded-idf
+pytest-timeout

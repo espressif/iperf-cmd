@@ -1,6 +1,7 @@
 stages:
   - pre-check
   - build
+  - test
   - publish
 
 workflow:
@@ -34,32 +35,44 @@ pre_commit_check:
     - build
     - internet
 
-
-build_iperf_master_with_preview:
+.build_template:
   stage: build
   rules:
     - when: on_success
-  image: espressif/idf:latest
   artifacts:
     paths:
       - "**/build*/build_log.txt"
       - "**/build*/config/sdkconfig.json"
+      # test apps
+      - "apps/test_apps/**/build*/*.bin"
+      # - "apps/test_apps/**/build*/*.elf"
+      - "apps/test_apps/**/build*/flasher_args.json"
+      # - "apps/test_apps/**/build*/flash_project_args"
+      - "apps/test_apps/**/build*/config/sdkconfig.json"
+      # - "**/build*/sdkconfig"
+      - "apps/test_apps/**/build*/bootloader/*.bin"
+      - "apps/test_apps/**/build*/partition_table/*.bin"
     when: always
     expire_in: 5 days
-  script:
-    - pip install idf-build-apps
-    - idf-build-apps build --enable-preview-targets
-  after_script:
-    - ls apps/iperf
   tags:
     - build
     - internet
 
+build_iperf_master:
+  extends:
+    - .build_template
+  image: espressif/idf:latest
+  script:
+    - pip install idf-build-apps
+    - idf-build-apps build --enable-preview-targets
+
 build_iperf:
-  stage: build
-  rules:
-    - when: on_success
+  extends:
+    - .build_template
   image: ${ESP_IMG}
+  script:
+    - pip install idf-build-apps
+    - idf-build-apps build
   parallel:
     matrix:
       - ESP_IMG: espressif/idf:release-v4.4
@@ -67,41 +80,72 @@ build_iperf:
       - ESP_IMG: espressif/idf:release-v5.1
       - ESP_IMG: espressif/idf:release-v5.2
       - ESP_IMG: espressif/idf:release-v5.3
-  artifacts:
-    paths:
-      - "**/build*/build_log.txt"
-      - "**/build*/config/sdkconfig.json"
-    when: always
-    expire_in: 5 days
-  script:
-    - pip install idf-build-apps
-    - idf-build-apps build
-  after_script:
-    - ls apps/iperf
-  tags:
-    - build
-    - internet
 
 # TODO: drop idf v4.x build at iperf v1.0
 # idf-build-apps 2.0 do not support python 3.6
 build_iperf_v43:
-  stage: build
+  extends:
+    - .build_template
   image: espressif/idf:v4.3.7
-  rules:
-    - when: on_success
   variables:
     LC_ALL: C.UTF-8
-  artifacts:
-    paths:
-      - "**/build*/build_log.txt"
-      - "**/build*/config/sdkconfig.json"
-    when: always
-    expire_in: 5 days
   script:
     - pip install idf-build-apps\<2 packaging\<22 idf-component-manager==1.4
     - idf-build-apps build
-  after_script:
-    - ls apps/iperf
+
+.test_job_template:
+  stage: test
+  rules:
+    - if: '$CI_COMMIT_REF_NAME == "main"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - "apps/test_apps/**/*"
+        - "iperf/**/*.c"
+  artifacts:
+    when: always
+    paths:
+      - XUNIT_RESULT.xml
+      - pytest_log/
+    reports:
+      junit: XUNIT_RESULT.xml
+    expire_in: 1 week
+  script:
+    - pip install -r tools/requirements/requirements.pytest.txt
+    - pytest apps/test_apps/ --target ${TEST_TARGET} --env ${TEST_ENV}
+  variables:
+    TEST_TARGET: 'esp32'
+    TEST_ENV: generic
   tags:
-    - build
-    - internet
+    - ${TEST_TARGET}
+    - ${TEST_ENV}
+
+
+target_test_master:
+  extends:
+    - .test_job_template
+  needs:
+    - job: build_iperf_master
+      artifacts: true
+  parallel:
+    matrix:
+      - TEST_TARGET: ['esp32', 'esp32c5']
+
+target_test_releases_4.4:
+  extends:
+    - .test_job_template
+  needs:
+    - job: 'build_iperf: [espressif/idf:release-v4.4]'
+      artifacts: true
+  parallel:
+    matrix:
+      - TEST_TARGET: 'esp32'
+
+target_test_releases_5.0:
+  extends:
+    - .test_job_template
+  needs:
+    - job: 'build_iperf: [espressif/idf:release-v5.0]'
+      artifacts: true
+  parallel:
+    matrix:
+      - TEST_TARGET: 'esp32'

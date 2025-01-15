@@ -13,6 +13,7 @@ apps/iperf:
 
 apps/test_apps/loopback:
   disable:
-    - if: IDF_VERSION_MAJOR < 5 or IDF_TARGET in ["esp32h21", "linux"]
-      temporary: true
-      reason: Tests are not ready yet
+    - if: IDF_TARGET not in ["esp32", "esp32c5"]
+      reason: only test on these targets
+    - if: IDF_VERSION_MAJOR == 4 and IDF_VERSION_MINOR < 4
+      reason: Disable build

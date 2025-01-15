@@ -16,7 +16,7 @@ jobs:
 
       - name: check components version same with tag
         run: |
-          pip install -r tools/requirements.txt
+          pip install -r tools/requirements/requirements.check.txt
           python tools/check_version.py --version ${{ github.event.release.tag_name }}
 
       - name: Upload iperf to IDF Component Registry

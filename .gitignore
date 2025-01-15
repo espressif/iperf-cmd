@@ -8,3 +8,6 @@ managed_components/
 .mypy_cache/
 .ruff_cache/
 doxygen/
+
+__pycache__/
+pytest_log/
