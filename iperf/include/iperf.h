@@ -115,6 +115,7 @@ extern "C" {
 typedef enum {
     MBITS_PER_SEC,
     KBITS_PER_SEC,
+    BITS_PER_SEC,
 } iperf_output_format_t;
 
 /**
@@ -174,13 +175,13 @@ typedef void (*iperf_report_handler_func_t)(iperf_id_t id, iperf_state_t iperf_s
 typedef struct {
     esp_ip_addr_t destination; /**< destination IP */
     esp_ip_addr_t source; /**< source IP */
-    iperf_output_format_t format;  /**< output format, K(bits/s), M(bits/s) */
+    iperf_output_format_t format;  /**< output format, bits/sec, Kbits/sec, Mbits/sec */
     iperf_report_handler_func_t report_handler;  /**< iperf status report function */
     void *report_handler_priv; /**< pointer to user's private data later passed to report function */
     uint32_t flag; /**< iperf flag */
     uint32_t interval;  /**< report interval in secs */
     uint32_t time;  /**< total send time in secs */
-    int32_t bw_lim;  /**< bandwidth limit in Mbits/s */
+    int32_t bw_lim;  /**< bandwidth limit in bits/s */
     uint16_t dport;  /**< destination port */
     uint16_t sport;  /**< source port */
     uint16_t len_send_buf;  /**< send buffer length in bytes */

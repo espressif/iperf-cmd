@@ -76,7 +76,7 @@ _Iperf Configuration._
 
 Variables:
 
--  int32\_t bw_lim  <br>bandwidth limit in Mbits/s
+-  int32\_t bw_lim  <br>bandwidth limit in bits/s
 
 -  esp\_ip\_addr\_t destination  <br>destination IP
 
@@ -84,7 +84,7 @@ Variables:
 
 -  uint32\_t flag  <br>iperf flag
 
--  iperf\_output\_format\_t format  <br>output format, K(bits/s), M(bits/s)
+-  iperf\_output\_format\_t format  <br>output format, bits/sec, Kbits/sec, Mbits/sec
 
 -  uint32\_t interval  <br>report interval in secs
 
@@ -125,7 +125,8 @@ _Iperf output report format._
 ```c
 enum iperf_output_format_t {
     MBITS_PER_SEC,
-    KBITS_PER_SEC
+    KBITS_PER_SEC,
+    BITS_PER_SEC
 };
 ```
 

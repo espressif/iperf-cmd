@@ -1,0 +1,9 @@
+menu "Console Command: Iperf"
+
+    config IPERF_CMD_DEFAULT_BW_MBPS
+        bool "Use 'm' as default unit for '--bandwidth'"
+        default n
+        help
+            This option is for compatibility with iperf 0.1, as the default bandwidth unit in iperf 0.1 is Mbps.
+
+endmenu
