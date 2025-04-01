@@ -107,7 +107,7 @@ extern "C" {
  * documentation to determine whether this feature is supported.
  *
  */
-#define IPERF_ALL_INSTANCES_ID              INT8_MIN
+#define IPERF_ALL_INSTANCES_ID              (-1)
 
 /**
  * @brief Iperf output report format
@@ -186,6 +186,7 @@ typedef struct {
     uint16_t sport;  /**< source port */
     uint16_t len_send_buf;  /**< send buffer length in bytes */
     uint8_t traffic_task_priority;  /**< iperf traffic task priority */
+    iperf_id_t instance_id;  /**< iperf instance id */
 } iperf_cfg_t;
 
 /**

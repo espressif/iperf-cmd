@@ -43,15 +43,12 @@ pre_commit_check:
     paths:
       - "**/build*/build_log.txt"
       - "**/build*/config/sdkconfig.json"
-      # test apps
-      - "apps/test_apps/**/build*/*.bin"
-      # - "apps/test_apps/**/build*/*.elf"
-      - "apps/test_apps/**/build*/flasher_args.json"
-      # - "apps/test_apps/**/build*/flash_project_args"
-      - "apps/test_apps/**/build*/config/sdkconfig.json"
-      # - "**/build*/sdkconfig"
-      - "apps/test_apps/**/build*/bootloader/*.bin"
-      - "apps/test_apps/**/build*/partition_table/*.bin"
+      # test apps, test on esp32 and esp32c5
+      - "apps/test_apps/**/build_*/*.bin"
+      - "apps/test_apps/**/build_*/flasher_args.json"
+      - "apps/test_apps/**/build_*/config/sdkconfig.json"
+      - "apps/test_apps/**/build_*/bootloader/*.bin"
+      - "apps/test_apps/**/build_*/partition_table/*.bin"
     when: always
     expire_in: 5 days
   tags:
@@ -101,6 +98,7 @@ build_iperf_v43:
       changes:
         - "apps/test_apps/**/*"
         - "iperf/**/*.c"
+        - "iperf-cmd/**/*.c"
   artifacts:
     when: always
     paths:

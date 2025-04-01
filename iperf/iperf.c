@@ -116,6 +116,7 @@ static void iperf_delete_instance(iperf_instance_data_t *iperf_instance);
 
 static void iperf_print_report(iperf_print_type_t print_type, iperf_instance_data_t *iperf_instance)
 {
+    static bool is_iperf_header_displayed = false;
     if ((iperf_instance->flags & IPERF_FLAG_REPORT_NO_PRINT) == IPERF_FLAG_REPORT_NO_PRINT) {
         return;
     }
@@ -160,9 +161,10 @@ static void iperf_print_report(iperf_print_type_t print_type, iperf_instance_dat
             }
 #endif
         }
-        // only the first instance prints the header
-        if (iperf_instance->id == 0) {
+        // only prints the header once
+        if (is_iperf_header_displayed == false) {
             printf("\n[ ID] Interval\t\tTransfer\tBandwidth\n");
+            is_iperf_header_displayed = true;
         }
         break;
     }
@@ -923,7 +925,7 @@ static esp_err_t iperf_list_exec_for_each(iperf_list_exec_fn fn, void *ctx)
 
 static iperf_id_t iperf_list_get_next_available_id_unsafe(void)
 {
-    iperf_id_t smallest_id = -1;
+    iperf_id_t smallest_id = 0;
     iperf_instance_data_t *instance;
 
     LIST_FOREACH(instance, p_running_iperfs_list, _list_entry) {
@@ -932,6 +934,18 @@ static iperf_id_t iperf_list_get_next_available_id_unsafe(void)
         }
     }
     return smallest_id + 1;
+}
+
+
+static bool iperf_list_check_id_available_unsafe(iperf_id_t id)
+{
+    iperf_instance_data_t *instance;
+    LIST_FOREACH(instance, p_running_iperfs_list, _list_entry) {
+        if (instance->id == id) {
+            return false;
+        }
+    }
+    return true;
 }
 
 static iperf_instance_data_t* iperf_list_get_instance_by_id(iperf_id_t id)
@@ -950,14 +964,31 @@ static iperf_instance_data_t* iperf_list_get_instance_by_id(iperf_id_t id)
     return result;
 }
 
-static esp_err_t iperf_list_add_instance(iperf_instance_data_t *iperf_instance)
+static esp_err_t iperf_list_add_instance(iperf_instance_data_t *iperf_instance, iperf_id_t id)
 {
     esp_err_t ret = ESP_OK;
     if (xSemaphoreTake(s_list_lock, IPERF_LIST_LOCK_TMO_RTOS_TICKS) == pdTRUE) {
-        iperf_id_t id = iperf_list_get_next_available_id_unsafe();
-        ESP_GOTO_ON_FALSE(id > -1, ESP_FAIL, err, TAG, "too many instances exist, can't assign an id");
-        iperf_instance->id = id;
+        if (id <= 0) {
+            /* find current biggest ID and increase by one */
+            id = iperf_list_get_next_available_id_unsafe();
+            if (id < 0) {
+                ESP_LOGE(TAG, "failed to get next available iperf instance id");
+                ret = ESP_FAIL;
+            }
+        } else {
+            /* Bind to given ID */
+            if (iperf_list_check_id_available_unsafe(id) == false) {
+                ESP_LOGE(TAG, "iperf instance id %d already in use.", id);
+                ret = ESP_FAIL;
+            }
+        }
+        /* unlock iperf instance list */
+        if (ret != ESP_OK) {
+            xSemaphoreGive(s_list_lock);
+            goto err;
+        }
 
+        iperf_instance->id = id;
         LIST_INSERT_HEAD(p_running_iperfs_list, iperf_instance, _list_entry);
         xSemaphoreGive(s_list_lock);
     } else {
@@ -1115,7 +1146,7 @@ iperf_id_t iperf_start_instance(const iperf_cfg_t *cfg)
     ESP_GOTO_ON_FALSE(iperf_instance, ESP_ERR_NO_MEM, err, TAG, "cannot create iperf instance: not enough memory");
 
     // Add pointer to the array of started iperfs
-    ESP_GOTO_ON_ERROR(iperf_list_add_instance(iperf_instance), err, TAG, "cannot add new instance to instances list");
+    ESP_GOTO_ON_ERROR(iperf_list_add_instance(iperf_instance, cfg->instance_id), err, TAG, "cannot add new instance to instances list");
 
     // create instance specific tag used in logs
     snprintf(iperf_instance->tag, sizeof(iperf_instance->tag), TAG_ID_STR, iperf_instance->id);
@@ -1159,7 +1190,7 @@ err:
 esp_err_t iperf_stop_instance(iperf_id_t id)
 {
     esp_err_t ret = ESP_OK;
-    ESP_GOTO_ON_FALSE(id >= 0 || id == IPERF_ALL_INSTANCES_ID, ESP_ERR_INVALID_ARG, err, TAG, "cannot stop instance: invalid id provided (id=%" PRIi8 ")", id);
+    ESP_GOTO_ON_FALSE(id > 0 || id == IPERF_ALL_INSTANCES_ID, ESP_ERR_INVALID_ARG, err, TAG, "cannot stop instance: invalid id provided (id=%" PRIi8 ")", id);
 
     // if user called stop prior start
     if (s_list_lock == NULL) {

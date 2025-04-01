@@ -11,18 +11,23 @@ This repository contains `iperf` command based esp-idf console.
 - And `iperf --abort`
 
   ```
-  iperf  [-suV] [-c <host>] [-p <port>] [-l <length>] [-i <interval>] [-t <time>] [-b <bandwidth>] [-f <format>] [--abort]
+  > help iperf
+  iperf  [-suV] [--help] [-c <host>] [-p <port>] [-B <host>] [--cport=<port>] [-l <length>] [-i <interval>] [-t <time>] [-b <bandwidth>] [-f <format>] [--id=<id>] [--abort]
     iperf command to measure network performance, through TCP or UDP connections.
+          --help  display this help and exit
     -c, --client=<host>  run in client mode, connecting to <host>
     -s, --server  run in server mode
       -u, --udp  use UDP rather than TCP
     -V, --ipv6_domain  Set the domain to IPv6 (send packets over IPv6)
     -p, --port=<port>  server port to listen on/connect to
-    -l, --len=<length>  Set read/write buffer size
+    -B, --bind=<host>  bind to interface at <host> address
+    --cport=<port>  bind to a specific client port
+    -l, --len=<length>  length of buffer in bytes to write(Defaults: TCP=16384, IPv4 UDP=1470, IPv6 UDP=1450)
     -i, --interval=<interval>  seconds between periodic bandwidth reports
     -t, --time=<time>  time in seconds to transmit for (default 10 secs)
-    -b, --bandwidth=<bandwidth> #[kmgKMG] bandwidth to send at in bits/sec (default in bits/sec)
+    -b, --bandwidth=<bandwidth>  #[kmgKMG]  bandwidth to send at in bits/sec
     -f, --format=<format>  'b' = bits/sec 'k' = Kbits/sec 'm' = Mbits/sec
+      --id=<id>  iperf instance ID. default: 'increase' for create, 'all' for abort.
         --abort  abort running iperf
   ```
 
