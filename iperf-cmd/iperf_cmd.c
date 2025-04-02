@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2024-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -40,7 +40,7 @@ typedef struct {
     struct arg_int *length;
     struct arg_int *interval;
     struct arg_int *time;
-    struct arg_int *bw_limit;
+    struct arg_str *bw_limit;
     struct arg_str *format;
     struct arg_lit *abort;
     struct arg_int *id;
@@ -50,6 +50,55 @@ typedef struct {
 static iperf_args_t iperf_args;
 static iperf_report_handler_func_t s_report_hndl;
 static void *s_report_priv;
+
+static int32_t iperf_bandwith_convert(const char *bandwidth_str)
+{
+    int len = strlen(bandwidth_str);
+    if (len == 0) {
+        return IPERF_DEFAULT_NO_BW_LIMIT;
+    }
+
+    char *endptr = NULL;
+    int32_t value = strtol(bandwidth_str, &endptr, 10);
+    if (value <= 0) {
+        return IPERF_DEFAULT_NO_BW_LIMIT;
+    }
+
+    int base = 1;
+    switch (endptr[0])
+    {
+    case 'k':
+        base = 1000;
+        break;
+    case 'K':
+        base = 1024;
+        break;
+    case 'm':
+        base = 1000 * 1000;
+        break;
+    case 'M':
+        base = 1024 * 1024;
+        break;
+    case 'g':
+        base = 1000 * 1000 * 1000;
+        break;
+    case 'G':
+        base = 1024 * 1024 * 1024;
+        break;
+    default:
+#if CONFIG_IPERF_CMD_DEFAULT_BW_MBPS
+        base = 1000 * 1000;
+#endif
+        break;
+    }
+
+    value = value * base;
+    if (value <= 0) {
+        return IPERF_DEFAULT_NO_BW_LIMIT;
+    } else {
+        return value;
+    }
+}
 
 static int cmd_do_iperf(int argc, char **argv)
 {
@@ -84,7 +133,8 @@ static int cmd_do_iperf(int argc, char **argv)
 #if IPERF_IPV6_ENABLED
     if (iperf_args.ipv6_domain->count > 0) {
         instance_type = IPERF_CMD_INSTANCE_USE_IPV6;
-        return 0;
+        cfg.source.type = ESP_IPADDR_TYPE_V6;
+        cfg.destination.type = ESP_IPADDR_TYPE_V6;
     }
 #endif
 
@@ -181,16 +231,15 @@ static int cmd_do_iperf(int argc, char **argv)
     if (iperf_args.bw_limit->count == 0) {
         cfg.bw_lim = IPERF_DEFAULT_NO_BW_LIMIT;
     } else {
-        cfg.bw_lim = iperf_args.bw_limit->ival[0];
-        if (cfg.bw_lim <= 0) {
-            cfg.bw_lim = IPERF_DEFAULT_NO_BW_LIMIT;
-        }
+        cfg.bw_lim = iperf_bandwith_convert(iperf_args.bw_limit->sval[0]);
     }
     /* -f --format */
     cfg.format = MBITS_PER_SEC;
     if (iperf_args.format->count > 0) {
         char format_ch = iperf_args.format->sval[0][0];
-        if (format_ch == 'k') {
+        if (format_ch == 'b') {
+            cfg.format = BITS_PER_SEC;
+        } else if (format_ch == 'k') {
             cfg.format = KBITS_PER_SEC;
         } else if (format_ch == 'm') {
             cfg.format = MBITS_PER_SEC;
@@ -274,8 +323,8 @@ esp_err_t iperf_cmd_register_iperf(void)
                                                          ", IPv6 UDP=" STR(IPERF_DEFAULT_IPV6_UDP_TX_LEN) ")");
     iperf_args.interval = arg_int0("i", "interval", "<interval>", "seconds between periodic bandwidth reports");
     iperf_args.time = arg_int0("t", "time", "<time>", "time in seconds to transmit for (default 10 secs)");
-    iperf_args.bw_limit = arg_int0("b", "bandwidth", "<bandwidth>", "bandwidth to send at in Mbits/sec");
-    iperf_args.format = arg_str0("f", "format", "<format>", "'k' = Kbits/sec 'm' = Mbits/sec");
+    iperf_args.bw_limit = arg_str0("b", "bandwidth", "<bandwidth>", "#[kmgKMG]  bandwidth to send at in bits/sec");
+    iperf_args.format = arg_str0("f", "format", "<format>", "'b' = bits/sec 'k' = Kbits/sec 'm' = Mbits/sec");
     /* abort is not an official option */
     iperf_args.abort = arg_lit0(NULL, "abort", "abort running iperf");
     iperf_args.id = arg_int0(NULL, "id", "<id>", "ID of iperf instance. `all` if omitted.");

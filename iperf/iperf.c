@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2024-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -119,7 +119,12 @@ static void iperf_print_report(iperf_print_type_t print_type, iperf_instance_dat
     if ((iperf_instance->flags & IPERF_FLAG_REPORT_NO_PRINT) == IPERF_FLAG_REPORT_NO_PRINT) {
         return;
     }
-    char format_ch = iperf_instance->stats.format == MBITS_PER_SEC ? 'M' : 'K';
+    char format_ch = '\0';
+    if (iperf_instance->stats.format == MBITS_PER_SEC) {
+        format_ch = 'M';
+    } else if (iperf_instance->stats.format == KBITS_PER_SEC) {
+        format_ch = 'K';
+    }
     switch (print_type) {
     case IPERF_PRINT_CONNECT_INFO: {
         if (iperf_instance->socket_info.target_addr.ss_family == AF_INET) {
@@ -336,6 +341,9 @@ static void iperf_report_task(void *arg)
         // check if valid data is available
         if (report_task_data_tmp.report_interval_sec != 0) {
             switch (iperf_instance->stats.format) {
+            case BITS_PER_SEC:
+                data_len = report_task_data_tmp.period_data_snapshot;
+                break;
             case KBITS_PER_SEC:
                 data_len = (report_task_data_tmp.period_data_snapshot / 1000.0);
                 break;
@@ -1133,7 +1141,7 @@ iperf_id_t iperf_start_instance(const iperf_cfg_t *cfg)
 
     // calculate timer period or set default
     if (cfg->bw_lim > 0) {
-        iperf_instance->timers.tx_period_us = iperf_instance->socket_info.buffer_len * 8 / cfg->bw_lim;
+        iperf_instance->timers.tx_period_us = (uint64_t)iperf_instance->socket_info.buffer_len * 8 * 1000 * 1000 / cfg->bw_lim;
     }
     ESP_GOTO_ON_ERROR(iperf_create_timers(iperf_instance), err, TAG_ID, "failed to create timers");
 
