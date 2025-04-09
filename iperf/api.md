@@ -37,7 +37,7 @@
 
 | Type | Name |
 | ---: | :--- |
-| define  | [**IPERF\_ALL\_INSTANCES\_ID**](#define-iperf_all_instances_id)  INT8\_MIN<br>_Special ID used to perform actions on all running instances._ |
+| define  | [**IPERF\_ALL\_INSTANCES\_ID**](#define-iperf_all_instances_id)  (-1)<br>_Special ID used to perform actions on all running instances._ |
 | define  | [**IPERF\_DEFAULT\_CONFIG\_CLIENT**](#define-iperf_default_config_client) (proto, ip) <br>_Default config to run iperf in client mode._ |
 | define  | [**IPERF\_DEFAULT\_CONFIG\_SERVER**](#define-iperf_default_config_server) (proto, ip) <br>_Default config to run iperf in server mode._ |
 | define  | [**IPERF\_DEFAULT\_INTERVAL**](#define-iperf_default_interval)  3<br> |
@@ -85,6 +85,8 @@ Variables:
 -  uint32\_t flag  <br>iperf flag
 
 -  iperf\_output\_format\_t format  <br>output format, bits/sec, Kbits/sec, Mbits/sec
+
+-  iperf\_id\_t instance_id  <br>iperf instance id
 
 -  uint32\_t interval  <br>report interval in secs
 
@@ -329,7 +331,7 @@ esp_err_t iperf_stop_instance (
 
 _Special ID used to perform actions on all running instances._
 ```c
-#define IPERF_ALL_INSTANCES_ID INT8_MIN
+#define IPERF_ALL_INSTANCES_ID (-1)
 ```
 
 

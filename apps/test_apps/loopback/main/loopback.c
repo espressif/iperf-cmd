@@ -126,9 +126,9 @@ static void udp_basic_test(esp_ip_addr_t esp_addr_any, esp_ip_addr_t esp_addr_lo
     memset(&iperf_data.server_report, 0, sizeof(iperf_report_t));
 
     iperf_id_t server_id = iperf_start_instance(&udp_server_cfg);
-    TEST_ASSERT_EQUAL_INT8(0, server_id);
+    TEST_ASSERT_EQUAL_INT8(1, server_id);
     iperf_id_t client_id = iperf_start_instance(&udp_client_cfg);
-    TEST_ASSERT_EQUAL_INT8(1, client_id);
+    TEST_ASSERT_EQUAL_INT8(2, client_id);
     EventBits_t bits = xEventGroupWaitBits(iperf_event_group, server_all_states_bits | client_all_states_bits,
                                pdTRUE, pdTRUE, pdMS_TO_TICKS(10000));
     ESP_LOGI(TAG, "bits: 0x%lx", bits);
@@ -152,9 +152,9 @@ static void udp_basic_test(esp_ip_addr_t esp_addr_any, esp_ip_addr_t esp_addr_lo
     memset(&iperf_data.server_report, 0, sizeof(iperf_report_t));
 
     server_id = iperf_start_instance(&udp_server_cfg);
-    TEST_ASSERT_EQUAL_INT8(0, server_id);
+    TEST_ASSERT_EQUAL_INT8(1, server_id);
     client_id = iperf_start_instance(&udp_client_cfg);
-    TEST_ASSERT_EQUAL_INT8(1, client_id);
+    TEST_ASSERT_EQUAL_INT8(2, client_id);
     bits = xEventGroupWaitBits(iperf_event_group, server_all_states_bits | client_all_states_bits,
                                pdTRUE, pdTRUE, pdMS_TO_TICKS(10000));
     ESP_LOGI(TAG, "bits: 0x%lx", bits);
@@ -178,9 +178,9 @@ static void udp_basic_test(esp_ip_addr_t esp_addr_any, esp_ip_addr_t esp_addr_lo
     memset(&iperf_data.server_report, 0, sizeof(iperf_report_t));
 
     server_id = iperf_start_instance(&udp_server_cfg);
-    TEST_ASSERT_EQUAL_INT8(0, server_id);
+    TEST_ASSERT_EQUAL_INT8(1, server_id);
     client_id = iperf_start_instance(&udp_client_cfg);
-    TEST_ASSERT_EQUAL_INT8(1, client_id);
+    TEST_ASSERT_EQUAL_INT8(2, client_id);
     bits = xEventGroupWaitBits(iperf_event_group, server_all_states_bits | client_all_states_bits,
                                pdTRUE, pdTRUE, pdMS_TO_TICKS(10000));
     ESP_LOGI(TAG, "bits: 0x%lx", bits);
@@ -205,9 +205,9 @@ static void udp_basic_test(esp_ip_addr_t esp_addr_any, esp_ip_addr_t esp_addr_lo
     memset(&iperf_data.server_report, 0, sizeof(iperf_report_t));
 
     server_id = iperf_start_instance(&udp_server_cfg);
-    TEST_ASSERT_EQUAL_INT8(0, server_id);
+    TEST_ASSERT_EQUAL_INT8(1, server_id);
     client_id = iperf_start_instance(&udp_client_cfg);
-    TEST_ASSERT_EQUAL_INT8(1, client_id);
+    TEST_ASSERT_EQUAL_INT8(2, client_id);
     bits = xEventGroupWaitBits(iperf_event_group, server_all_states_bits | client_all_states_bits,
                                pdTRUE, pdTRUE, pdMS_TO_TICKS(12000));
     ESP_LOGI(TAG, "bits: 0x%lx", bits);
@@ -230,12 +230,14 @@ static void udp_basic_test(esp_ip_addr_t esp_addr_any, esp_ip_addr_t esp_addr_lo
     memset(&iperf_data.client_report, 0, sizeof(iperf_report_t));
     memset(&iperf_data.server_report, 0, sizeof(iperf_report_t));
 
+    udp_client_cfg.instance_id = 3;
+    udp_server_cfg.instance_id = 5;
     client_id = iperf_start_instance(&udp_client_cfg);
-    TEST_ASSERT_EQUAL_INT8(0, client_id);
+    TEST_ASSERT_EQUAL_INT8(3, client_id);
     // can delay since client does not wait for connection
     vTaskDelay(pdMS_TO_TICKS(1000));
     server_id = iperf_start_instance(&udp_server_cfg);
-    TEST_ASSERT_EQUAL_INT8(1, server_id);
+    TEST_ASSERT_EQUAL_INT8(5, server_id);
     bits = xEventGroupWaitBits(iperf_event_group, server_all_states_bits | client_all_states_bits,
                                pdTRUE, pdTRUE, pdMS_TO_TICKS(10000));
     ESP_LOGI(TAG, "bits: 0x%lx", bits);
@@ -282,10 +284,10 @@ static void tcp_basic_test(esp_ip_addr_t esp_addr_any, esp_ip_addr_t esp_addr_lo
     memset(&iperf_data.server_report, 0, sizeof(iperf_report_t));
 
     iperf_id_t server_id = iperf_start_instance(&udp_server_cfg);
-    TEST_ASSERT_EQUAL_INT8(0, server_id);
+    TEST_ASSERT_EQUAL_INT8(1, server_id);
     vTaskDelay(pdMS_TO_TICKS(100)); // invoke context switch to lwIP can create server's listen socket
     iperf_id_t client_id = iperf_start_instance(&udp_client_cfg);
-    TEST_ASSERT_EQUAL_INT8(1, client_id);
+    TEST_ASSERT_EQUAL_INT8(2, client_id);
     EventBits_t bits = xEventGroupWaitBits(iperf_event_group, server_all_states_bits | client_all_states_bits,
                                pdTRUE, pdTRUE, pdMS_TO_TICKS(10000));
     ESP_LOGI(TAG, "bits: 0x%lx", bits);
@@ -309,10 +311,10 @@ static void tcp_basic_test(esp_ip_addr_t esp_addr_any, esp_ip_addr_t esp_addr_lo
     memset(&iperf_data.server_report, 0, sizeof(iperf_report_t));
 
     server_id = iperf_start_instance(&udp_server_cfg);
-    TEST_ASSERT_EQUAL_INT8(0, server_id);
+    TEST_ASSERT_EQUAL_INT8(1, server_id);
     vTaskDelay(pdMS_TO_TICKS(100)); // invoke context switch to lwIP can create server's listen socket
     client_id = iperf_start_instance(&udp_client_cfg);
-    TEST_ASSERT_EQUAL_INT8(1, client_id);
+    TEST_ASSERT_EQUAL_INT8(2, client_id);
     bits = xEventGroupWaitBits(iperf_event_group, server_all_states_bits | client_all_states_bits,
                                pdTRUE, pdTRUE, pdMS_TO_TICKS(10000));
     ESP_LOGI(TAG, "bits: 0x%lx", bits);
@@ -336,10 +338,10 @@ static void tcp_basic_test(esp_ip_addr_t esp_addr_any, esp_ip_addr_t esp_addr_lo
     memset(&iperf_data.server_report, 0, sizeof(iperf_report_t));
 
     server_id = iperf_start_instance(&udp_server_cfg);
-    TEST_ASSERT_EQUAL_INT8(0, server_id);
+    TEST_ASSERT_EQUAL_INT8(1, server_id);
     vTaskDelay(pdMS_TO_TICKS(100)); // invoke context switch to lwIP can create server's listen socket
     client_id = iperf_start_instance(&udp_client_cfg);
-    TEST_ASSERT_EQUAL_INT8(1, client_id);
+    TEST_ASSERT_EQUAL_INT8(2, client_id);
     bits = xEventGroupWaitBits(iperf_event_group, server_all_states_bits | client_all_states_bits,
                                pdTRUE, pdTRUE, pdMS_TO_TICKS(10000));
     ESP_LOGI(TAG, "bits: 0x%lx", bits);
@@ -362,10 +364,10 @@ static void tcp_basic_test(esp_ip_addr_t esp_addr_any, esp_ip_addr_t esp_addr_lo
     memset(&iperf_data.server_report, 0, sizeof(iperf_report_t));
 
     server_id = iperf_start_instance(&udp_server_cfg);
-    TEST_ASSERT_EQUAL_INT8(0, server_id);
+    TEST_ASSERT_EQUAL_INT8(1, server_id);
     vTaskDelay(pdMS_TO_TICKS(100)); // invoke context switch to lwIP can create server's listen socket
     client_id = iperf_start_instance(&udp_client_cfg);
-    TEST_ASSERT_EQUAL_INT8(1, client_id);
+    TEST_ASSERT_EQUAL_INT8(2, client_id);
     bits = xEventGroupWaitBits(iperf_event_group, IPERF_SERVER_CLOSE_BIT | IPERF_CLIENT_CLOSE_BIT,
                                pdTRUE, pdTRUE, pdMS_TO_TICKS(12000));
     ESP_LOGI(TAG, "bits: 0x%lx", bits);
@@ -387,9 +389,9 @@ static void tcp_basic_test(esp_ip_addr_t esp_addr_any, esp_ip_addr_t esp_addr_lo
     memset(&iperf_data.server_report, 0, sizeof(iperf_report_t));
 
     client_id = iperf_start_instance(&udp_client_cfg);
-    TEST_ASSERT_EQUAL_INT8(0, client_id);
+    TEST_ASSERT_EQUAL_INT8(1, client_id);
     server_id = iperf_start_instance(&udp_server_cfg);
-    // Note: don't check for server_id, it can be 0 since client may almost immediately return
+    // Note: don't check for server_id, it can be 1 since client may almost immediately return
 
     bits = xEventGroupWaitBits(iperf_event_group, IPERF_SERVER_CLOSE_BIT | IPERF_CLIENT_CLOSE_BIT,
                                pdTRUE, pdTRUE, pdMS_TO_TICKS(11000));

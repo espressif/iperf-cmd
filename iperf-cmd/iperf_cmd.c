@@ -42,8 +42,8 @@ typedef struct {
     struct arg_int *time;
     struct arg_str *bw_limit;
     struct arg_str *format;
-    struct arg_lit *abort;
     struct arg_int *id;
+    struct arg_lit *abort;
     struct arg_end *end;
 } iperf_args_t;
 
@@ -108,7 +108,7 @@ static int cmd_do_iperf(int argc, char **argv)
 
     if (nerrors != 0) {
         arg_print_errors(stderr, iperf_args.end, argv[0]);
-        return 0;
+        return 1;
     }
 
     if (iperf_args.help->count != 0) {
@@ -128,6 +128,15 @@ static int cmd_do_iperf(int argc, char **argv)
     }
 
     memset(&cfg, 0, sizeof(cfg));
+
+    /* Given instance id */
+    if(iperf_args.id->count != 0) {
+        cfg.instance_id = (iperf_id_t)iperf_args.id->ival[0];
+        if (cfg.instance_id <= 0) {
+            ESP_LOGE(APP_TAG, "Invalid iperf ID");
+            return 1;
+        }
+    }
 
     uint8_t instance_type = IPERF_CMD_INSTANCE_USE_IPV4;
 #if IPERF_IPV6_ENABLED
@@ -160,7 +169,7 @@ static int cmd_do_iperf(int argc, char **argv)
 #endif
         if (error == 0) {
             ESP_LOGE(APP_TAG, "invalid destination address");
-            return 0;
+            return 1;
         }
     }
 
@@ -189,7 +198,7 @@ static int cmd_do_iperf(int argc, char **argv)
 #endif
         if (error == 0) {
             ESP_LOGE(APP_TAG, "invalid address to bind");
-            return 0;
+            return 1;
         }
     }
 
@@ -325,9 +334,10 @@ esp_err_t iperf_cmd_register_iperf(void)
     iperf_args.time = arg_int0("t", "time", "<time>", "time in seconds to transmit for (default 10 secs)");
     iperf_args.bw_limit = arg_str0("b", "bandwidth", "<bandwidth>", "#[kmgKMG]  bandwidth to send at in bits/sec");
     iperf_args.format = arg_str0("f", "format", "<format>", "'b' = bits/sec 'k' = Kbits/sec 'm' = Mbits/sec");
+    /* iperf instance id */
+    iperf_args.id = arg_int0(NULL, "id", "<id>", "iperf instance ID. default: 'increase' for create, 'all' for abort.");
     /* abort is not an official option */
     iperf_args.abort = arg_lit0(NULL, "abort", "abort running iperf");
-    iperf_args.id = arg_int0(NULL, "id", "<id>", "ID of iperf instance. `all` if omitted.");
     iperf_args.end = arg_end(1);
     const esp_console_cmd_t iperf_cmd = {
         .command = "iperf",
