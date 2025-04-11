@@ -36,7 +36,13 @@ static const char *TAG = "iperf";
 typedef struct {
     uint32_t period_data_snapshot;
     uint32_t report_interval_sec;
-} iperf_report_task_t;
+}
+#if CONFIG_COMPILER_OPTIMIZATION_SIZE || CONFIG_COMPILER_OPTIMIZATION_PERF
+__attribute__((aligned(8))) // IDF-12777
+#endif
+iperf_report_task_data_t;
+// When -Os or -O2 is enabled, if 8-byte alignment is not explicitly enforced when defining the structure,
+// using atomic_exchange on that structure type may lead to issues, and the value may not be exchanged correctly.
 
 typedef struct {
     float val;
@@ -96,7 +102,7 @@ typedef struct iperf_instance_data_struct {
     iperf_socket_info_t socket_info;
 
     _Atomic uint32_t period_data_passed;
-    _Atomic iperf_report_task_t report_task_data;
+    _Atomic iperf_report_task_data_t report_task_data;
     iperf_stats_t stats;
 
     iperf_report_handler_func_t report_handler;
@@ -217,7 +223,7 @@ IRAM_ATTR static void tick_timer_cb(void *arg)
     iperf_instance->timers.to_report_ticks++;
 
     if (iperf_instance->timers.to_report_ticks >= iperf_instance->interval || iperf_instance->timers.ticks >= iperf_instance->time) {
-        iperf_report_task_t report_task_data_tmp = atomic_load(&iperf_instance->report_task_data);
+        iperf_report_task_data_t report_task_data_tmp = atomic_load(&iperf_instance->report_task_data);
         // zero indicates the report task processed data
         if (report_task_data_tmp.report_interval_sec == 0) {
             report_task_data_tmp.period_data_snapshot = atomic_exchange(&iperf_instance->period_data_passed, 0);
@@ -336,7 +342,7 @@ static void iperf_report_task(void *arg)
             iperf_print_report(IPERF_PRINT_CONNECT_INFO, iperf_instance);
             connnect_info_printed = true;
         }
-        iperf_report_task_t report_task_data_tmp = { 0 };
+        iperf_report_task_data_t report_task_data_tmp = { 0 };
         // load a local copy and zero the atomic var to indicate report has been processed
         report_task_data_tmp = atomic_exchange(&iperf_instance->report_task_data, report_task_data_tmp);
 
