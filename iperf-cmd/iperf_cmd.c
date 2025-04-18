@@ -51,7 +51,7 @@ static iperf_args_t iperf_args;
 static iperf_report_handler_func_t s_report_hndl;
 static void *s_report_priv;
 
-static int32_t iperf_bandwith_convert(const char *bandwidth_str)
+static int32_t iperf_bandwidth_convert(const char *bandwidth_str)
 {
     int len = strlen(bandwidth_str);
     if (len == 0) {
@@ -240,7 +240,7 @@ static int cmd_do_iperf(int argc, char **argv)
     if (iperf_args.bw_limit->count == 0) {
         cfg.bw_lim = IPERF_DEFAULT_NO_BW_LIMIT;
     } else {
-        cfg.bw_lim = iperf_bandwith_convert(iperf_args.bw_limit->sval[0]);
+        cfg.bw_lim = iperf_bandwidth_convert(iperf_args.bw_limit->sval[0]);
     }
     /* -f --format */
     cfg.format = MBITS_PER_SEC;
