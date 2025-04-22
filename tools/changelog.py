@@ -14,6 +14,7 @@ from typing import Dict
 from typing import List
 
 RELEASE_TAG_BASE_URL = 'https://github.com/espressif/iperf-cmd/releases/tag'
+GITHUB_COMMIT_BASE_URL = 'https://github.com/espressif/iperf-cmd/commit'
 IPERF_COMPONENT_URL = 'https://components.espressif.com/components/espressif/iperf'
 PROJECT_ROOT = pathlib.Path(__file__).resolve().parents[1]
 CZ_OLD_TAG = os.environ['CZ_PRE_CURRENT_TAG_VERSION']
@@ -69,9 +70,9 @@ def update_changelog() -> None:
             commit = _commit_match.group(0)
             for match in CHANGELOG_PATTERN.finditer(commit_log):
                 if match.group(2):
-                    _changelog = f'- {match.group(2)}: {match.group(3)} ([{commit}]({RELEASE_TAG_BASE_URL}{commit}))'
+                    _changelog = f'- {match.group(2)}: {match.group(3)} ([{commit}]({GITHUB_COMMIT_BASE_URL}/{commit}))'
                 else:
-                    _changelog = f'- {match.group(3)} ([{commit}]({RELEASE_TAG_BASE_URL}{commit}))'
+                    _changelog = f'- {match.group(3)} ([{commit}]({GITHUB_COMMIT_BASE_URL}/{commit}))'
                 changelogs[CHANGELOG_SECTIONS[match.group(1)]].append(_changelog)
 
         if component == 'iperf-cmd':
