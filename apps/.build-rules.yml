@@ -11,6 +11,10 @@ apps/iperf:
     - if: IDF_TARGET != "esp32" and CONFIG_NAME == "ipv4_only"
     - if: IDF_TARGET != "esp32c3" and CONFIG_NAME == "ipv6_only"
 
+apps/linux_target:
+  disable:
+    - if: IDF_TARGET != "linux"
+
 apps/test_apps:
   disable:
     - if: IDF_TARGET not in ["esp32", "esp32c5"]
