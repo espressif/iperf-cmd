@@ -8,7 +8,7 @@ version_files = [
     "iperf-cmd/idf_component.yml",
     "iperf-cmd/README.md",
 ]
-tag_format = "v$major.$minor.$patch"
+tag_format = "v$version"
 version_scheme = "semver"
 bump_message = "ci(bump): bump version $current_version → $new_version"
 update_changelog_on_bump = false

@@ -35,6 +35,23 @@ pre_commit_check:
     - build
     - internet
 
+preview_changelog:
+  stage: pre-check
+  image: ${GITLAB_DOCKER_REGISTRY}/qa/dockerfiles/qa-python-env:2
+  variables:
+    GIT_STRATEGY: fetch
+    GIT_DEPTH: 0
+  rules:
+    - when: on_success
+  script:
+    - git config --global user.email "temp@example.com"
+    - git config --global user.name "Temp"
+    - pip install python-gitlab pyYAML commitizen
+    - python tools/ci/preview_changelog.py
+  tags:
+    - host_test
+
+
 .build_template:
   stage: build
   rules:
