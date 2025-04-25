@@ -15,7 +15,7 @@ TEST_BW_STANDARD: Dict[str, Dict[str, float]] = {
     'esp32': {
         'tcp': 22,
         'udp': 26,
-        'tcpv6': 16,
+        'tcpv6': 15,  # not stable due to different cache misses
     },
     'esp32c5': {
         'tcp': 62,

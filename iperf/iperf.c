@@ -73,6 +73,7 @@ typedef struct {
     struct sockaddr_storage target_addr; // Either the address to receive from if server, or send to if client
     uint16_t dport;
     uint16_t sport;
+    int tos;  /* setsockopt does not accept uint8 size */
     uint8_t *buffer;
     uint32_t buffer_len;
 } iperf_socket_info_t;
@@ -556,6 +557,7 @@ static esp_err_t iperf_start_and_run_tcp_server(iperf_instance_data_t *iperf_ins
 
     timeout.tv_sec = IPERF_SOCKET_RX_TIMEOUT;
     ESP_GOTO_ON_FALSE(setsockopt(iperf_instance->socket, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) == 0, ESP_FAIL, err, TAG_ID, "failed to set SO_RCVTIMEO - errno %d", errno);
+    ESP_GOTO_ON_FALSE(setsockopt(iperf_instance->socket, IPPROTO_IP, IP_TOS, &(iperf_instance->socket_info.tos), sizeof(iperf_instance->socket_info.tos)) == 0, ESP_FAIL, err, TAG_ID, "failed to set IP_TOS - errno %d", errno);
     iperf_instance->socket_info.target_addr = listen_addr;
 
     // if loop finished prematurely due to error
@@ -624,6 +626,7 @@ static esp_err_t iperf_start_and_run_tcp_client(iperf_instance_data_t *iperf_ins
     }
     timeout.tv_sec = IPERF_SOCKET_TCP_TX_TIMEOUT;
     ESP_GOTO_ON_FALSE(setsockopt(iperf_instance->socket, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout)) == 0, ESP_FAIL, err, TAG_ID, "failed to set IPERF_SOCKET_TCP_TX_TIMEOUT - errno %d", errno);
+    ESP_GOTO_ON_FALSE(setsockopt(iperf_instance->socket, IPPROTO_IP, IP_TOS, &(iperf_instance->socket_info.tos), sizeof(iperf_instance->socket_info.tos)) == 0, ESP_FAIL, err, TAG_ID, "failed to set IP_TOS - errno %d", errno);
 
     ESP_GOTO_ON_ERROR(iperf_start_timers(iperf_instance), err, TAG_ID, "failed to start internal timers");
     // if loop finished prematurely due to error
@@ -700,6 +703,7 @@ static esp_err_t iperf_start_and_run_udp_server(iperf_instance_data_t *iperf_ins
 
     timeout.tv_sec = IPERF_SOCKET_RX_TIMEOUT;
     ESP_GOTO_ON_FALSE(setsockopt(iperf_instance->socket, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) == 0, ESP_FAIL, err, TAG_ID, "failed to set SO_RCVTIMEO - errno %d", errno);
+    ESP_GOTO_ON_FALSE(setsockopt(iperf_instance->socket, IPPROTO_IP, IP_TOS, &(iperf_instance->socket_info.tos), sizeof(iperf_instance->socket_info.tos)) == 0, ESP_FAIL, err, TAG_ID, "failed to set IP_TOS - errno %d", errno);
     iperf_instance->socket_info.target_addr = listen_addr;
 
     // if loop finished prematurely due to error
@@ -787,6 +791,7 @@ static esp_err_t iperf_start_and_run_udp_client(iperf_instance_data_t *iperf_ins
         ESP_GOTO_ON_FALSE(false, ESP_ERR_INVALID_ARG, err, TAG_ID, "cannot start UDP client: invalid address type");
 #endif
     }
+    ESP_GOTO_ON_FALSE(setsockopt(iperf_instance->socket, IPPROTO_IP, IP_TOS, &(iperf_instance->socket_info.tos), sizeof(iperf_instance->socket_info.tos)) == 0, ESP_FAIL, err, TAG_ID, "failed to set IP_TOS - errno %d", errno);
 
     ESP_GOTO_ON_ERROR(iperf_start_timers(iperf_instance), err, TAG_ID, "failed to start internal timers");
     // if loop finished prematurely due to error
@@ -1138,6 +1143,7 @@ iperf_id_t iperf_start_instance(const iperf_cfg_t *cfg)
     iperf_instance_data_t *iperf_instance = NULL;
 
     ESP_GOTO_ON_FALSE(cfg != NULL, ESP_ERR_INVALID_ARG, err, TAG, "cannot create iperf instance: no config provided");
+    ESP_GOTO_ON_FALSE(cfg->tos >= 0 && cfg->tos <= 255, ESP_ERR_INVALID_ARG, err, TAG, "Invalid TOS value, should be in range 0x00~0xFF");
 
     if (s_list_lock == NULL) {
         s_list_lock = xSemaphoreCreateMutexStatic(&s_list_lock_buffer);
@@ -1171,6 +1177,7 @@ iperf_id_t iperf_start_instance(const iperf_cfg_t *cfg)
     iperf_instance->socket_info.source = cfg->source;
     iperf_instance->socket_info.dport = cfg->dport;
     iperf_instance->socket_info.sport = cfg->sport;
+    iperf_instance->socket_info.tos = cfg->tos;
     iperf_instance->socket_info.buffer_len = iperf_get_buffer_len(iperf_instance, cfg->len_send_buf);
     iperf_instance->socket_info.buffer = (uint8_t *) calloc(iperf_instance->socket_info.buffer_len, sizeof(uint8_t));
     ESP_GOTO_ON_FALSE(iperf_instance->socket_info.buffer, ESP_ERR_NO_MEM, err, TAG_ID, "cannot create iperf instance: not enough memory for buffer allocation");
