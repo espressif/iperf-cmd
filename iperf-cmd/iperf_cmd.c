@@ -42,6 +42,7 @@ typedef struct {
     struct arg_int *time;
     struct arg_str *bw_limit;
     struct arg_str *format;
+    struct arg_int *tos;
     struct arg_int *id;
     struct arg_lit *abort;
     struct arg_end *end;
@@ -227,7 +228,6 @@ static int cmd_do_iperf(int argc, char **argv)
             cfg.interval = IPERF_DEFAULT_INTERVAL;
         }
     }
-
     if (iperf_args.time->count == 0) {
         cfg.time = IPERF_DEFAULT_TIME;
     } else {
@@ -255,6 +255,10 @@ static int cmd_do_iperf(int argc, char **argv)
         } else {
             ESP_LOGW(APP_TAG, "ignore invalid format: %c", format_ch);
         }
+    }
+    /* iperf --tos */
+    if (iperf_args.tos->count > 0) {
+        cfg.tos = iperf_args.tos->ival[0];
     }
 
     cfg.report_handler = s_report_hndl;
@@ -334,6 +338,7 @@ esp_err_t iperf_cmd_register_iperf(void)
     iperf_args.time = arg_int0("t", "time", "<time>", "time in seconds to transmit for (default 10 secs)");
     iperf_args.bw_limit = arg_str0("b", "bandwidth", "<bandwidth>", "#[kmgKMG]  bandwidth to send at in bits/sec");
     iperf_args.format = arg_str0("f", "format", "<format>", "'b' = bits/sec 'k' = Kbits/sec 'm' = Mbits/sec");
+    iperf_args.tos = arg_int0("S", "tos", "<tos>", "set the socket's IP_TOS (byte) field");
     /* iperf instance id */
     iperf_args.id = arg_int0(NULL, "id", "<id>", "iperf instance ID. default: 'increase' for create, 'all' for abort.");
     /* abort is not an official option */

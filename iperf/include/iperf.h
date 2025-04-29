@@ -185,6 +185,7 @@ typedef struct {
     uint16_t dport;  /**< destination port */
     uint16_t sport;  /**< source port */
     uint16_t len_send_buf;  /**< send buffer length in bytes */
+    int tos;  /**< set socket TOS field */
     uint8_t traffic_task_priority;  /**< iperf traffic task priority */
     iperf_id_t instance_id;  /**< iperf instance id */
 } iperf_cfg_t;

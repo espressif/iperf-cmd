@@ -102,6 +102,8 @@ Variables:
 
 -  uint32\_t time  <br>total send time in secs
 
+-  int tos  <br>set socket TOS field
+
 -  uint8\_t traffic_task_priority  <br>iperf traffic task priority
 
 ### typedef `iperf_id_t`
