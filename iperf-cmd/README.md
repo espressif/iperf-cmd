@@ -30,6 +30,7 @@ This repository contains `iperf` command based esp-idf console.
     -S, --tos=<tos>  set the socket's IP_TOS (byte) field
       --id=<id>  iperf instance ID. default: 'increase' for create, 'all' for abort.
         --abort  abort running iperf
+    -P, --parallel=<parallel number>  number of parallel client threads to run
   ```
 
 * [kmgKMG] Indicates options that support a k,m,g,K,M or G suffix Lowercase format characters are 10^3 based and uppercase are 2^n based (e.g. 1k = 1000, 1K = 1024, 1m = 1,000,000 and 1M = 1,048,576)

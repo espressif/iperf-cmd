@@ -65,6 +65,7 @@ extern "C" {
 #define IPERF_SOCKET_RX_TIMEOUT         CONFIG_IPERF_DEF_SOCKET_RX_TIMEOUT
 #define IPERF_SOCKET_TCP_TX_TIMEOUT     CONFIG_IPERF_DEF_SOCKET_TCP_TX_TIMEOUT
 #define IPERF_SOCKET_ACCEPT_TIMEOUT     5
+#define IPERF_SOCKET_MAX_NUM            CONFIG_LWIP_MAX_SOCKETS
 
 /**
  * @brief Default config to run iperf in client mode
