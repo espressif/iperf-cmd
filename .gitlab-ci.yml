@@ -78,7 +78,7 @@ build_iperf_master:
   image: espressif/idf:latest
   script:
     - pip install idf-build-apps
-    - idf-build-apps build --enable-preview-targets
+    - idf-build-apps build --enable-preview-targets ${CI_BUILD_APPS_DISABLE_TARGETS_ARGS}
 
 build_iperf:
   extends:

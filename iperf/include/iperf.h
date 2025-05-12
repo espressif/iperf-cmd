@@ -1,12 +1,13 @@
 /*
- * SPDX-FileCopyrightText: 2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2024-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
 
-#include <sys/socket.h>
 #include <stdint.h>
+#include <string.h>
+#include <sys/socket.h>
 #include "esp_err.h"
 #include "esp_types.h"
 #include "esp_netif_ip_addr.h"
