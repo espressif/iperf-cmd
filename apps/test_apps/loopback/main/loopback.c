@@ -29,7 +29,7 @@ static const char *TAG = "iperf_test";
 #define IPERF_CLIENT_RUNNING_BIT   BIT(6)
 #define IPERF_CLIENT_CLOSE_BIT     BIT(7)
 
-#define BW_TEST_MARGIN_FACTOR       (0.5)
+#define UDP_CLIENT_BW_FACTOR_ICMP  (0.4) // expected bandwidth to be ~40% (worst case) due to the ICMP "Port Unreachable" is sent
 
 // older versions of unity don't have these types of test assertions
 #ifndef TEST_ASSERT_GREATER_OR_EQUAL_FLOAT
@@ -200,7 +200,7 @@ static void udp_basic_test(esp_ip_addr_t esp_addr_any, esp_ip_addr_t esp_addr_lo
     udp_server_cfg.source = esp_addr_err;
 
     // store the previous bandwidth to get idea what to expect
-    float average_bw_prev = iperf_data.client_report.average_bandwidth * BW_TEST_MARGIN_FACTOR;
+    float average_bw_prev = iperf_data.client_report.average_bandwidth;
     memset(&iperf_data.client_report, 0, sizeof(iperf_report_t));
     memset(&iperf_data.server_report, 0, sizeof(iperf_report_t));
 
@@ -219,7 +219,7 @@ static void udp_basic_test(esp_ip_addr_t esp_addr_any, esp_ip_addr_t esp_addr_lo
     ESP_LOGI(TAG, "average client throughput: %.2lf %cbps", iperf_data.client_report.average_bandwidth, units);
     ESP_LOGI(TAG, "average server throughput: %.2lf %cbps", iperf_data.server_report.average_bandwidth, units);
     TEST_ASSERT_EQUAL_FLOAT(0, iperf_data.server_report.average_bandwidth);
-    TEST_ASSERT_GREATER_OR_EQUAL_FLOAT(average_bw_prev, iperf_data.client_report.average_bandwidth);
+    TEST_ASSERT_GREATER_OR_EQUAL_FLOAT(average_bw_prev * UDP_CLIENT_BW_FACTOR_ICMP, iperf_data.client_report.average_bandwidth); // performance is expected to be less due to the ICMP "Port Unreachable" is sent
 
     ESP_LOGI(TAG, "----------------------");
     ESP_LOGI(TAG, "start the client first");
@@ -245,7 +245,8 @@ static void udp_basic_test(esp_ip_addr_t esp_addr_any, esp_ip_addr_t esp_addr_lo
 
     ESP_LOGI(TAG, "average client throughput: %.2lf %cbps", iperf_data.client_report.average_bandwidth, units);
     ESP_LOGI(TAG, "average server throughput: %.2lf %cbps", iperf_data.server_report.average_bandwidth, units);
-    TEST_ASSERT_GREATER_THAN_FLOAT(average_bw_prev, iperf_data.client_report.average_bandwidth);
+    // performance may be also affected by the ICMP "Port Unreachable" since server is started later
+    TEST_ASSERT_GREATER_OR_EQUAL_FLOAT(average_bw_prev * UDP_CLIENT_BW_FACTOR_ICMP, iperf_data.client_report.average_bandwidth);
     TEST_ASSERT_GREATER_THAN_FLOAT(5, iperf_data.server_report.average_bandwidth); // server is started later, hence avg. bw is expected to be low
 
     TEST_ESP_OK(esp_event_loop_delete_default());
