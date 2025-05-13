@@ -78,7 +78,7 @@ build_iperf_master:
   image: espressif/idf:latest
   script:
     - pip install idf-build-apps
-    - idf-build-apps build --enable-preview-targets ${CI_BUILD_APPS_DISABLE_TARGETS_ARGS}
+    - idf-build-apps build --enable-preview-targets ${CI_BUILD_APPS_DISABLE_TARGETS_ARGS} ${CI_BUILD_APPS_IGNORE_WARNING_STRS_ARGS}
 
 build_iperf:
   extends:
@@ -86,7 +86,7 @@ build_iperf:
   image: ${ESP_IMG}
   script:
     - pip install idf-build-apps
-    - idf-build-apps build
+    - idf-build-apps build ${CI_BUILD_APPS_IGNORE_WARNING_STRS_ARGS}
   parallel:
     matrix:
       - ESP_IMG: espressif/idf:release-v4.4
@@ -94,6 +94,7 @@ build_iperf:
       - ESP_IMG: espressif/idf:release-v5.1
       - ESP_IMG: espressif/idf:release-v5.2
       - ESP_IMG: espressif/idf:release-v5.3
+      - ESP_IMG: espressif/idf:release-v5.4
 
 # TODO: drop idf v4.x build at iperf v1.0
 # idf-build-apps 2.0 do not support python 3.6
@@ -105,7 +106,8 @@ build_iperf_v43:
     LC_ALL: C.UTF-8
   script:
     - pip install idf-build-apps\<2 packaging\<22 idf-component-manager==1.4
-    - idf-build-apps build
+    # idf-build-apps 1.x does not support "ignore-warning-strs", ignore all warnings here
+    - idf-build-apps build --ignore-warning-str ".+"
 
 .test_job_template:
   stage: test

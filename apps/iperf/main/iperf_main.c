@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2024-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -12,13 +12,13 @@
 #error "Both LWIP_IPV4 and LWIP_IPV6 should be defined!"
 #endif
 
-#include "esp_wifi.h"
 #include "esp_log.h"
 #include "esp_err.h"
 #include "nvs_flash.h"
 #include "esp_console.h"
 
 #include "iperf_cmd.h"
+/* esp-qa/wifi-cmd */
 #include "wifi_cmd.h"
 
 void app_main(void)
@@ -31,7 +31,7 @@ void app_main(void)
     ESP_ERROR_CHECK(ret);
 
     /* initialise wifi */
-    app_initialise_wifi(NULL);
+    wifi_cmd_initialize_wifi(NULL);
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
 
     esp_console_repl_t *repl = NULL;
@@ -43,8 +43,9 @@ void app_main(void)
     ESP_ERROR_CHECK(esp_console_new_repl_uart(&uart_config, &repl_config, &repl));
 
     /* Register commands */
-    app_register_sta_basic_commands();
     ESP_ERROR_CHECK(iperf_cmd_register_iperf());
+    /* esp-qa/wifi-cmd */
+    wifi_cmd_register_all_basic();
 
     printf("\n ==================================================\n");
     printf(" |       Steps to test WiFi throughput            |\n");
