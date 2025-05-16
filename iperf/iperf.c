@@ -12,9 +12,40 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
-#include "esp_check.h"
 #include "esp_timer.h"
 #include "iperf.h"
+
+#if __has_include("esp_check.h")
+#include "esp_check.h"
+#else
+/* compatible with esp-idf v4.3 */
+#define ESP_RETURN_ON_ERROR(x, log_tag, format, ...) do {                                       \
+        esp_err_t err_rc_ = (x);                                                                \
+        if (unlikely(err_rc_ != ESP_OK)) {                                                      \
+            ESP_LOGE(log_tag, "%s(%d): " format, __FUNCTION__, __LINE__, ##__VA_ARGS__);        \
+            return err_rc_;                                                                     \
+        }                                                                                       \
+    } while(0)
+
+#define ESP_GOTO_ON_ERROR(x, goto_tag, log_tag, format, ...) do {                               \
+        esp_err_t err_rc_ = (x);                                                                \
+        if (unlikely(err_rc_ != ESP_OK)) {                                                      \
+            ESP_LOGE(log_tag, "%s(%d): " format, __FUNCTION__, __LINE__, ##__VA_ARGS__);        \
+            ret = err_rc_;                                                                      \
+            goto goto_tag;                                                                      \
+        }                                                                                       \
+    } while(0)
+
+#define ESP_GOTO_ON_FALSE(a, err_code, goto_tag, log_tag, format, ...) do {                                \
+        if (unlikely(!(a))) {                                                                              \
+            ESP_LOGE(log_tag, "%s(%d): " format, __FUNCTION__, __LINE__ __VA_OPT__(,) __VA_ARGS__);        \
+            ret = err_code;                                                                                \
+            goto goto_tag;                                                                                 \
+        }                                                                                                  \
+    } while (0)
+
+
+#endif
 
 static const char *TAG = "iperf";
 #define TAG_ID_STR "iperf(id=%" PRIi8 ")"
