@@ -45,6 +45,7 @@ typedef struct {
     struct arg_int *tos;
     struct arg_int *id;
     struct arg_lit *abort;
+    struct arg_int *parallel;
     struct arg_end *end;
 } iperf_args_t;
 
@@ -300,7 +301,22 @@ static int cmd_do_iperf(int argc, char **argv)
              cfg.dport,
              cfg.interval, cfg.time);
 
-    iperf_start_instance(&cfg);
+    /* parallel*/
+    int parallel = 1;
+    if (iperf_args.parallel->count > 0) {
+        if ((iperf_args.server->count > 0) || (iperf_args.id->count > 0)) {
+            ESP_LOGE(APP_TAG, "parallel option should not be used with server mode or specific instance id");
+            return 1;
+        }
+        parallel = iperf_args.parallel->ival[0];
+        if (parallel < 1 || parallel > IPERF_SOCKET_MAX_NUM) {
+            ESP_LOGE(APP_TAG, "invalid parallel number");
+            return 1;
+        }
+    }
+    for (int i = 0; i < parallel; i++) {
+        iperf_start_instance(&cfg);
+    }
 
     return 0;
 }
@@ -343,6 +359,7 @@ esp_err_t iperf_cmd_register_iperf(void)
     iperf_args.id = arg_int0(NULL, "id", "<id>", "iperf instance ID. default: 'increase' for create, 'all' for abort.");
     /* abort is not an official option */
     iperf_args.abort = arg_lit0(NULL, "abort", "abort running iperf");
+    iperf_args.parallel = arg_int0("P", "parallel", "<parallel number>", "number of parallel client threads to run");
     iperf_args.end = arg_end(1);
     const esp_console_cmd_t iperf_cmd = {
         .command = "iperf",

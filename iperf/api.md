@@ -63,6 +63,7 @@
 | define  | [**IPERF\_REPORT\_TASK\_PRIORITY**](#define-iperf_report_task_priority)  CONFIG\_IPERF\_DEF\_REPORT\_TASK\_PRIORITY<br> |
 | define  | [**IPERF\_REPORT\_TASK\_STACK**](#define-iperf_report_task_stack)  4096<br> |
 | define  | [**IPERF\_SOCKET\_ACCEPT\_TIMEOUT**](#define-iperf_socket_accept_timeout)  5<br> |
+| define  | [**IPERF\_SOCKET\_MAX\_NUM**](#define-iperf_socket_max_num)  CONFIG\_LWIP\_MAX\_SOCKETS<br> |
 | define  | [**IPERF\_SOCKET\_RX\_TIMEOUT**](#define-iperf_socket_rx_timeout)  CONFIG\_IPERF\_DEF\_SOCKET\_RX\_TIMEOUT<br> |
 | define  | [**IPERF\_SOCKET\_TCP\_TX\_TIMEOUT**](#define-iperf_socket_tcp_tx_timeout)  CONFIG\_IPERF\_DEF\_SOCKET\_TCP\_TX\_TIMEOUT<br> |
 | define  | [**IPERF\_TRAFFIC\_TASK\_NAME**](#define-iperf_traffic_task_name)  "iperf\_traffic"<br> |
@@ -534,6 +535,12 @@ _Default config to run iperf in server mode._
 
 ```c
 #define IPERF_SOCKET_ACCEPT_TIMEOUT 5
+```
+
+### define `IPERF_SOCKET_MAX_NUM`
+
+```c
+#define IPERF_SOCKET_MAX_NUM CONFIG_LWIP_MAX_SOCKETS
 ```
 
 ### define `IPERF_SOCKET_RX_TIMEOUT`
