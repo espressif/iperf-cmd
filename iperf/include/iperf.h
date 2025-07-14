@@ -33,6 +33,7 @@ extern "C" {
 #define IPERF_IPV4_ENABLED LWIP_IPV4
 #define IPERF_IPV6_ENABLED LWIP_IPV6
 
+#define IPERF_WEAK_ATTR __attribute__((weak))
 
 #define IPERF_FLAG_SET(cfg, flag) ((cfg) |= (flag))
 #define IPERF_FLAG_CLR(cfg, flag) ((cfg) &= (~(flag)))
@@ -154,16 +155,17 @@ typedef enum {
 typedef int8_t iperf_id_t;
 
 /**
- * @brief Structure of common data present in any iperf report
+ * @brief Structure of data for iperf report
  *
  */
-typedef struct {
-    iperf_output_format_t output_format;  /**< output format, Mbits or Kbits */
-    float period_bandwidth;  /**< bandwidth during current interval */
-    float period_transfer;  /**< data transferred during current interval */
-    float average_bandwidth;  /**< average bandwidth from start to end */
-    double curr_total_transfer;  /**< current data transferred since iperf has started */
-    uint32_t current_time_sec;  /**< current time since iperf has started */
+ typedef struct {
+    iperf_id_t instance_id;  /**< iperf instance id */
+    uint32_t start_sec;  /**< report data start time since iperf has started */
+    uint32_t end_sec;  /**< report data end time since iperf has started */
+    double period_bytes;  /**< data transferred in bytes in this period */
+    iperf_output_format_t output_format;  /**< output format, bits/sec, Kbits/sec, Mbits/sec */
+    double total_transfer;  /**< total data transferred since iperf has started (available when using iperf_get_report) */
+    float average_bandwidth;  /**< average bandwidth since iperf has started (available when using iperf_get_report) */
 } iperf_report_t;
 
 /**
@@ -223,6 +225,24 @@ esp_err_t iperf_register_report_handler(iperf_id_t id, iperf_report_handler_func
  */
 esp_err_t iperf_get_report(iperf_id_t id, iperf_report_t *report);
 
+/**
+ * @brief Iperf default traffic report function.
+ *
+ * @param data iperf traffic report data
+ */
+void iperf_default_report_output(const iperf_report_t* data);
+
+/**
+* @brief Default Iperf traffic report function.
+*
+* Outputs bandwidth statistics in the Iperf format, e.g.:
+* "[  3]  3.0- 4.0 sec   128 KBytes  1.05 Mbits/sec".
+*
+* @note This function is set to "weak", allowing users to override it with a custom implementation.
+*
+* @param data iperf traffic report data
+*/
+IPERF_WEAK_ATTR void iperf_report_output(const iperf_report_t* data);
 
 /**
  * @brief Get the traffic type of instance.
@@ -260,6 +280,7 @@ iperf_id_t iperf_start_instance(const iperf_cfg_t *cfg);
  *      - ESP_ERR_INVALID_ARG if invalid id is provided (id < 0)
  */
 esp_err_t iperf_stop_instance(iperf_id_t id);
+
 
 #ifdef __cplusplus
 }

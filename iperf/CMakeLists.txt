@@ -2,7 +2,7 @@ include($ENV{IDF_PATH}/tools/cmake/version.cmake)
 
 idf_build_get_property(target IDF_TARGET)
 
-set(srcs  "iperf.c")
+set(srcs  "iperf.c" "iperf_report.c")
 set(priv_requires freertos esp_netif esp_timer)
 
 if(${target} STREQUAL "linux")

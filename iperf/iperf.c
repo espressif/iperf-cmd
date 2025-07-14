@@ -152,18 +152,18 @@ static SemaphoreHandle_t s_list_lock = NULL;
 static esp_err_t iperf_stop_exec(iperf_instance_data_t *iperf_instance);
 static void iperf_delete_instance(iperf_instance_data_t *iperf_instance);
 
+
+IPERF_WEAK_ATTR void iperf_report_output(const iperf_report_t* data)
+{
+    iperf_default_report_output(data);
+}
+
 static void iperf_print_report(iperf_print_type_t print_type, iperf_instance_data_t *iperf_instance)
 {
-    static bool is_iperf_header_displayed = false;
     if ((iperf_instance->flags & IPERF_FLAG_REPORT_NO_PRINT) == IPERF_FLAG_REPORT_NO_PRINT) {
         return;
     }
-    char format_ch = '\0';
-    if (iperf_instance->stats.format == MBITS_PER_SEC) {
-        format_ch = 'M';
-    } else if (iperf_instance->stats.format == KBITS_PER_SEC) {
-        format_ch = 'K';
-    }
+    iperf_report_t report_data = {};
     switch (print_type) {
     case IPERF_PRINT_CONNECT_INFO: {
         if (iperf_instance->socket_info.target_addr.ss_family == AF_INET) {
@@ -199,31 +199,23 @@ static void iperf_print_report(iperf_print_type_t print_type, iperf_instance_dat
             }
 #endif
         }
-        // only prints the header once
-        if (is_iperf_header_displayed == false) {
-            printf("\n[ ID] Interval\t\tTransfer\tBandwidth\n");
-            is_iperf_header_displayed = true;
-        }
         break;
     }
     case IPERF_PRINT_STATS:
-        printf("[%3d] %2" PRIu32 ".0-%2" PRIu32 ".0 sec\t%2.2f %cBytes\t%.2f %cbits/sec\n", iperf_instance->id,
-               iperf_instance->stats.prev_time_sec,
-               iperf_instance->stats.current_time_sec,
-               iperf_instance->stats.period_transfer,
-               format_ch,
-               iperf_instance->stats.period_bandwidth,
-               format_ch);
-        break;
+        /* fallthrough */
     case IPERF_PRINT_SUMMARY:
-        printf("[%3d]  0.0-%2" PRIu32 ".0 sec\t%2.2f %cBytes\t%.2f %cbits/sec\n", iperf_instance->id,
-               iperf_instance->stats.current_time_sec,
-               iperf_instance->stats.curr_total_transfer,
-               format_ch,
-               iperf_instance->stats.average_bandwidth.val,
-               format_ch);
+        report_data.instance_id = iperf_instance->id;
+        report_data.start_sec = iperf_instance->stats.prev_time_sec;
+        report_data.end_sec = iperf_instance->stats.current_time_sec;
+        report_data.period_bytes = iperf_instance->stats.period_transfer;
+        report_data.output_format = iperf_instance->stats.format;
+        if (print_type == IPERF_PRINT_SUMMARY) {
+            report_data.start_sec = 0;
+            report_data.period_bytes = iperf_instance->stats.curr_total_transfer;
+        }
+        iperf_report_output(&report_data);
+
         break;
-    // fallthrough
     default:
         break;
     }
@@ -380,29 +372,11 @@ static void iperf_report_task(void *arg)
 
         // check if valid data is available
         if (report_task_data_tmp.report_interval_sec != 0) {
-            switch (iperf_instance->stats.format) {
-            case BITS_PER_SEC:
-                data_len = report_task_data_tmp.period_data_snapshot;
-                break;
-            case KBITS_PER_SEC:
-                data_len = (report_task_data_tmp.period_data_snapshot / 1000.0);
-                break;
-            case MBITS_PER_SEC:
-            /* pass through */
-            default:
-                data_len = (report_task_data_tmp.period_data_snapshot / 1000.0 / 1000.0);
-                break;
-            }
-            iperf_instance->stats.period_bandwidth = data_len * 8 / report_task_data_tmp.report_interval_sec;
-            iperf_instance->stats.average_bandwidth.k++;
-            iperf_instance->stats.average_bandwidth.val = ((iperf_instance->stats.average_bandwidth.val * (iperf_instance->stats.average_bandwidth.k - 1) /
-                                                            iperf_instance->stats.average_bandwidth.k) +
-                                                           (iperf_instance->stats.period_bandwidth / iperf_instance->stats.average_bandwidth.k));
+            data_len = report_task_data_tmp.period_data_snapshot;
             iperf_instance->stats.period_transfer = data_len;
             iperf_instance->stats.curr_total_transfer += data_len;
             iperf_instance->stats.prev_time_sec = iperf_instance->stats.current_time_sec;
             iperf_instance->stats.current_time_sec += report_task_data_tmp.report_interval_sec;
-
             // report IPERF_RUNNING to the handler
             iperf_state_action(IPERF_RUNNING, iperf_instance);
             iperf_print_report(IPERF_PRINT_STATS, iperf_instance);
@@ -924,12 +898,27 @@ err_report:
 
 static void iperf_copy_stats_to_report(iperf_instance_data_t *iperf_instance, iperf_report_t *report)
 {
+    report->instance_id = iperf_instance->id;
+    report->start_sec = iperf_instance->stats.prev_time_sec;
+    report->end_sec = iperf_instance->stats.current_time_sec;
+    report->period_bytes = iperf_instance->stats.period_transfer;
+    report->total_transfer = iperf_instance->stats.curr_total_transfer;
     report->output_format = iperf_instance->stats.format;
-    report->period_bandwidth = iperf_instance->stats.period_bandwidth;
-    report->period_transfer = iperf_instance->stats.period_transfer;
-    report->average_bandwidth = iperf_instance->stats.average_bandwidth.val;
-    report->curr_total_transfer = iperf_instance->stats.curr_total_transfer;
-    report->current_time_sec = iperf_instance->stats.current_time_sec;
+    /* calculate bandwidth */
+    switch (report->output_format) {
+        case MBITS_PER_SEC:
+            report->average_bandwidth = report->total_transfer / report->end_sec / 1000.0 / 1000.0 * 8;
+            break;
+        case KBITS_PER_SEC:
+            report->average_bandwidth = report->total_transfer / report->end_sec / 1000.0 * 8;
+            break;
+        case BITS_PER_SEC:
+            report->average_bandwidth = report->total_transfer / report->end_sec * 8;
+            break;
+        default:
+            /* never happen */
+            break;
+    }
 }
 
 static int iperf_esp_err_to_errno(esp_err_t esp_err)

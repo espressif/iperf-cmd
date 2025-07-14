@@ -19,6 +19,22 @@
 
 #include "iperf_cmd.h"
 
+void my_report_func()
+{
+    static int i  = 0;
+    if (i == 0 ) {
+        printf("my_report_func was called\n");
+        i++;
+    }
+}
+
+/* override weak func */
+void iperf_report_output(const iperf_report_t* data)
+{
+    my_report_func();
+    iperf_default_report_output(data);
+}
+
 void app_main(void)
 {
 

@@ -79,6 +79,8 @@ build_iperf_master:
   script:
     - pip install idf-build-apps
     - idf-build-apps build --enable-preview-targets ${CI_BUILD_APPS_DISABLE_TARGETS_ARGS} ${CI_BUILD_APPS_IGNORE_WARNING_STRS_ARGS}
+    # test weak func
+    - grep -a my_report_func apps/test_apps/iperf-cmd/build_esp32_default/iperf.bin
 
 build_iperf:
   extends:

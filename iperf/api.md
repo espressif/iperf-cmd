@@ -19,7 +19,7 @@
 | enum  | [**iperf\_ip\_type\_t**](#enum-iperf_ip_type_t)  <br>_Iperf IP type._ |
 | enum  | [**iperf\_output\_format\_t**](#enum-iperf_output_format_t)  <br>_Iperf output report format._ |
 | typedef void(\* | [**iperf\_report\_handler\_func\_t**](#typedef-iperf_report_handler_func_t)  <br>_iperf report handler function to receive runtime details from iperf_ |
-| struct | [**iperf\_report\_t**](#struct-iperf_report_t) <br>_Structure of common data present in any iperf report._ |
+| struct | [**iperf\_report\_t**](#struct-iperf_report_t) <br>_Structure of data for iperf report._ |
 | enum  | [**iperf\_state\_t**](#enum-iperf_state_t)  <br>_Iperf status._ |
 | enum  | [**iperf\_traffic\_type\_t**](#enum-iperf_traffic_type_t)  <br>_Iperf traffic type._ |
 
@@ -27,9 +27,11 @@
 
 | Type | Name |
 | ---: | :--- |
+|  void | [**iperf\_default\_report\_output**](#function-iperf_default_report_output) (const [**iperf\_report\_t**](#struct-iperf_report_t) \*data) <br>_Iperf default traffic report function._ |
 |  esp\_err\_t | [**iperf\_get\_report**](#function-iperf_get_report) (iperf\_id\_t id, [**iperf\_report\_t**](#struct-iperf_report_t) \*report) <br>_Get the current performance report of instance._ |
 |  esp\_err\_t | [**iperf\_get\_traffic\_type**](#function-iperf_get_traffic_type) (iperf\_id\_t id, iperf\_traffic\_type\_t \*traffic\_type) <br>_Get the traffic type of instance._ |
 |  esp\_err\_t | [**iperf\_register\_report\_handler**](#function-iperf_register_report_handler) (iperf\_id\_t id, iperf\_report\_handler\_func\_t handler, void \*priv) <br>_Set report handler during runtime for instance with given id._ |
+|  IPERF\_WEAK\_ATTR void | [**iperf\_report\_output**](#function-iperf_report_output) (const [**iperf\_report\_t**](#struct-iperf_report_t) \*data) <br>_Default Iperf traffic report function._ |
 |  iperf\_id\_t | [**iperf\_start\_instance**](#function-iperf_start_instance) (const [**iperf\_cfg\_t**](#struct-iperf_cfg_t) \*cfg) <br>_Start iperf instance._ |
 |  esp\_err\_t | [**iperf\_stop\_instance**](#function-iperf_stop_instance) (iperf\_id\_t id) <br>_Stop iperf instance._ |
 
@@ -68,6 +70,7 @@
 | define  | [**IPERF\_SOCKET\_TCP\_TX\_TIMEOUT**](#define-iperf_socket_tcp_tx_timeout)  CONFIG\_IPERF\_DEF\_SOCKET\_TCP\_TX\_TIMEOUT<br> |
 | define  | [**IPERF\_TRAFFIC\_TASK\_NAME**](#define-iperf_traffic_task_name)  "iperf\_traffic"<br> |
 | define  | [**IPERF\_TRAFFIC\_TASK\_STACK**](#define-iperf_traffic_task_stack)  4096<br> |
+| define  | [**IPERF\_WEAK\_ATTR**](#define-iperf_weak_attr)  \_\_attribute\_\_((weak))<br> |
 
 ## Structures and Types Documentation
 
@@ -144,21 +147,23 @@ typedef void(* iperf_report_handler_func_t) (iperf_id_t id, iperf_state_t iperf_
 
 ### struct `iperf_report_t`
 
-_Structure of common data present in any iperf report._
+_Structure of data for iperf report._
 
 Variables:
 
--  float average_bandwidth  <br>average bandwidth from start to end
+-  float average_bandwidth  <br>average bandwidth since iperf has started (available when using iperf\_get\_report)
 
--  double curr_total_transfer  <br>current data transferred since iperf has started
+-  uint32\_t end_sec  <br>report data end time since iperf has started
 
--  uint32\_t current_time_sec  <br>current time since iperf has started
+-  iperf\_id\_t instance_id  <br>iperf instance id
 
--  iperf\_output\_format\_t output_format  <br>output format, Mbits or Kbits
+-  iperf\_output\_format\_t output_format  <br>output format, bits/sec, Kbits/sec, Mbits/sec
 
--  float period_bandwidth  <br>bandwidth during current interval
+-  double period_bytes  <br>data transferred in bytes in this period
 
--  float period_transfer  <br>data transferred during current interval
+-  uint32\_t start_sec  <br>report data start time since iperf has started
+
+-  double total_transfer  <br>total data transferred since iperf has started (available when using iperf\_get\_report)
 
 ### enum `iperf_state_t`
 
@@ -187,6 +192,20 @@ enum iperf_traffic_type_t {
 
 ## Functions Documentation
 
+### function `iperf_default_report_output`
+
+_Iperf default traffic report function._
+```c
+void iperf_default_report_output (
+    const iperf_report_t *data
+) 
+```
+
+
+**Parameters:**
+
+
+* `data` iperf traffic report data
 ### function `iperf_get_report`
 
 _Get the current performance report of instance._
@@ -282,6 +301,30 @@ This function is not thread safe. Recommended to be used only inside `report_han
 * ESP\_OK on success
 * ESP\_ERR\_INVALID\_ARG if invalid argument
 * ESP\_ERR\_INVALID\_STATE if instance with associated ID was not found
+### function `iperf_report_output`
+
+_Default Iperf traffic report function._
+```c
+IPERF_WEAK_ATTR void iperf_report_output (
+    const iperf_report_t *data
+) 
+```
+
+
+Outputs bandwidth statistics in the Iperf format, e.g.: "[  3]  3.0- 4.0 sec   128 KBytes  1.05 Mbits/sec".
+
+
+
+**Note:**
+
+This function is set to "weak", allowing users to override it with a custom implementation.
+
+
+
+**Parameters:**
+
+
+* `data` iperf traffic report data
 ### function `iperf_start_instance`
 
 _Start iperf instance._
@@ -565,6 +608,12 @@ _Default config to run iperf in server mode._
 
 ```c
 #define IPERF_TRAFFIC_TASK_STACK 4096
+```
+
+### define `IPERF_WEAK_ATTR`
+
+```c
+#define IPERF_WEAK_ATTR __attribute__((weak))
 ```
 
 
