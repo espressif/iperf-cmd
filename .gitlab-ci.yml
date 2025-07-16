@@ -119,6 +119,7 @@ build_iperf_v43:
       changes:
         - "apps/test_apps/**/*"
         - "iperf/**/*.c"
+        - "iperf/**/Kconfig"
         - "iperf-cmd/**/*.c"
   artifacts:
     when: always
