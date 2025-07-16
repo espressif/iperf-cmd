@@ -3,6 +3,7 @@
 ## Header files
 
 - [iperf.h](#file-iperfh)
+- [iperf_types.h](#file-iperf_typesh)
 
 ## File iperf.h
 
@@ -10,28 +11,14 @@
 
 
 
-## Structures and Types
-
-| Type | Name |
-| ---: | :--- |
-| struct | [**iperf\_cfg\_t**](#struct-iperf_cfg_t) <br>_Iperf Configuration._ |
-| typedef int8\_t | [**iperf\_id\_t**](#typedef-iperf_id_t)  <br>_iperf instance ID_ |
-| enum  | [**iperf\_ip\_type\_t**](#enum-iperf_ip_type_t)  <br>_Iperf IP type._ |
-| enum  | [**iperf\_output\_format\_t**](#enum-iperf_output_format_t)  <br>_Iperf output report format._ |
-| typedef void(\* | [**iperf\_report\_handler\_func\_t**](#typedef-iperf_report_handler_func_t)  <br>_iperf report handler function to receive runtime details from iperf_ |
-| struct | [**iperf\_report\_t**](#struct-iperf_report_t) <br>_Structure of data for iperf report._ |
-| enum  | [**iperf\_state\_t**](#enum-iperf_state_t)  <br>_Iperf status._ |
-| enum  | [**iperf\_traffic\_type\_t**](#enum-iperf_traffic_type_t)  <br>_Iperf traffic type._ |
 
 ## Functions
 
 | Type | Name |
 | ---: | :--- |
-|  void | [**iperf\_default\_report\_output**](#function-iperf_default_report_output) (const [**iperf\_report\_t**](#struct-iperf_report_t) \*data) <br>_Iperf default traffic report function._ |
-|  esp\_err\_t | [**iperf\_get\_report**](#function-iperf_get_report) (iperf\_id\_t id, [**iperf\_report\_t**](#struct-iperf_report_t) \*report) <br>_Get the current performance report of instance._ |
-|  esp\_err\_t | [**iperf\_get\_traffic\_type**](#function-iperf_get_traffic_type) (iperf\_id\_t id, iperf\_traffic\_type\_t \*traffic\_type) <br>_Get the traffic type of instance._ |
-|  esp\_err\_t | [**iperf\_register\_report\_handler**](#function-iperf_register_report_handler) (iperf\_id\_t id, iperf\_report\_handler\_func\_t handler, void \*priv) <br>_Set report handler during runtime for instance with given id._ |
-|  IPERF\_WEAK\_ATTR void | [**iperf\_report\_output**](#function-iperf_report_output) (const [**iperf\_report\_t**](#struct-iperf_report_t) \*data) <br>_Default Iperf traffic report function._ |
+|  void | [**iperf\_default\_report\_output**](#function-iperf_default_report_output) (const [**iperf\_report\_t**](#struct-iperf_report_t) \*report) <br>_Iperf default report output (print) function._ |
+|  esp\_err\_t | [**iperf\_get\_traffic\_report**](#function-iperf_get_traffic_report) (iperf\_id\_t id, [**iperf\_traffic\_report\_t**](#struct-iperf_traffic_report_t) \*report) <br>_Get the current performance report of instance._ |
+|  IPERF\_WEAK\_ATTR void | [**iperf\_report\_output**](#function-iperf_report_output) (const [**iperf\_report\_t**](#struct-iperf_report_t) \*report) <br>_Iperf report output, defaults to_ `iperf_default_report_print` |
 |  iperf\_id\_t | [**iperf\_start\_instance**](#function-iperf_start_instance) (const [**iperf\_cfg\_t**](#struct-iperf_cfg_t) \*cfg) <br>_Start iperf instance._ |
 |  esp\_err\_t | [**iperf\_stop\_instance**](#function-iperf_stop_instance) (iperf\_id\_t id) <br>_Stop iperf instance._ |
 
@@ -54,7 +41,6 @@
 | define  | [**IPERF\_DEFAULT\_UDP\_RX\_LEN**](#define-iperf_default_udp_rx_len)  CONFIG\_IPERF\_DEF\_UDP\_RX\_BUFFER\_LEN<br> |
 | define  | [**IPERF\_FLAG\_CLIENT**](#define-iperf_flag_client)  BIT(0)<br> |
 | define  | [**IPERF\_FLAG\_CLR**](#define-iperf_flag_clr) (cfg, flag) ((cfg) &= (~(flag)))<br> |
-| define  | [**IPERF\_FLAG\_REPORT\_NO\_PRINT**](#define-iperf_flag_report_no_print)  BIT(4)<br> |
 | define  | [**IPERF\_FLAG\_SERVER**](#define-iperf_flag_server)  BIT(1)<br> |
 | define  | [**IPERF\_FLAG\_SET**](#define-iperf_flag_set) (cfg, flag) ((cfg) \|= (flag))<br> |
 | define  | [**IPERF\_FLAG\_TCP**](#define-iperf_flag_tcp)  BIT(2)<br> |
@@ -70,134 +56,16 @@
 | define  | [**IPERF\_SOCKET\_TCP\_TX\_TIMEOUT**](#define-iperf_socket_tcp_tx_timeout)  CONFIG\_IPERF\_DEF\_SOCKET\_TCP\_TX\_TIMEOUT<br> |
 | define  | [**IPERF\_TRAFFIC\_TASK\_NAME**](#define-iperf_traffic_task_name)  "iperf\_traffic"<br> |
 | define  | [**IPERF\_TRAFFIC\_TASK\_STACK**](#define-iperf_traffic_task_stack)  CONFIG\_IPERF\_DEF\_TRAFFIC\_TASK\_STACK<br> |
-| define  | [**IPERF\_WEAK\_ATTR**](#define-iperf_weak_attr)  \_\_attribute\_\_((weak))<br> |
-
-## Structures and Types Documentation
-
-### struct `iperf_cfg_t`
-
-_Iperf Configuration._
-
-Variables:
-
--  int32\_t bw_lim  <br>bandwidth limit in bits/s
-
--  esp\_ip\_addr\_t destination  <br>destination IP
-
--  uint16\_t dport  <br>destination port
-
--  uint32\_t flag  <br>iperf flag
-
--  iperf\_output\_format\_t format  <br>output format, bits/sec, Kbits/sec, Mbits/sec
-
--  iperf\_id\_t instance_id  <br>iperf instance id
-
--  uint32\_t interval  <br>report interval in secs
-
--  uint16\_t len_send_buf  <br>send buffer length in bytes
-
--  iperf\_report\_handler\_func\_t report_handler  <br>iperf status report function
-
--  void \* report_handler_priv  <br>pointer to user's private data later passed to report function
-
--  esp\_ip\_addr\_t source  <br>source IP
-
--  uint16\_t sport  <br>source port
-
--  uint32\_t time  <br>total send time in secs
-
--  int tos  <br>set socket TOS field
-
--  uint8\_t traffic_task_priority  <br>iperf traffic task priority
-
-### typedef `iperf_id_t`
-
-_iperf instance ID_
-```c
-typedef int8_t iperf_id_t;
-```
-
-### enum `iperf_ip_type_t`
-
-_Iperf IP type._
-```c
-enum iperf_ip_type_t {
-    IPERF_IP_TYPE_IPV4,
-    IPERF_IP_TYPE_IPV6
-};
-```
-
-### enum `iperf_output_format_t`
-
-_Iperf output report format._
-```c
-enum iperf_output_format_t {
-    MBITS_PER_SEC,
-    KBITS_PER_SEC,
-    BITS_PER_SEC
-};
-```
-
-### typedef `iperf_report_handler_func_t`
-
-_iperf report handler function to receive runtime details from iperf_
-```c
-typedef void(* iperf_report_handler_func_t) (iperf_id_t id, iperf_state_t iperf_state, void *priv);
-```
-
-### struct `iperf_report_t`
-
-_Structure of data for iperf report._
-
-Variables:
-
--  float average_bandwidth  <br>average bandwidth since iperf has started (available when using iperf\_get\_report)
-
--  uint32\_t end_sec  <br>report data end time since iperf has started
-
--  iperf\_id\_t instance_id  <br>iperf instance id
-
--  iperf\_output\_format\_t output_format  <br>output format, bits/sec, Kbits/sec, Mbits/sec
-
--  double period_bytes  <br>data transferred in bytes in this period
-
--  uint32\_t start_sec  <br>report data start time since iperf has started
-
--  double total_transfer  <br>total data transferred since iperf has started (available when using iperf\_get\_report)
-
-### enum `iperf_state_t`
-
-_Iperf status._
-```c
-enum iperf_state_t {
-    IPERF_STARTED,
-    IPERF_STOPPED,
-    IPERF_RUNNING,
-    IPERF_CLOSED
-};
-```
-
-### enum `iperf_traffic_type_t`
-
-_Iperf traffic type._
-```c
-enum iperf_traffic_type_t {
-    IPERF_TCP_SERVER,
-    IPERF_TCP_CLIENT,
-    IPERF_UDP_SERVER,
-    IPERF_UDP_CLIENT
-};
-```
 
 
 ## Functions Documentation
 
 ### function `iperf_default_report_output`
 
-_Iperf default traffic report function._
+_Iperf default report output (print) function._
 ```c
 void iperf_default_report_output (
-    const iperf_report_t *data
+    const iperf_report_t *report
 ) 
 ```
 
@@ -205,21 +73,21 @@ void iperf_default_report_output (
 **Parameters:**
 
 
-* `data` iperf traffic report data
-### function `iperf_get_report`
+* `report` iperf report data
+### function `iperf_get_traffic_report`
 
 _Get the current performance report of instance._
 ```c
-esp_err_t iperf_get_report (
+esp_err_t iperf_get_traffic_report (
     iperf_id_t id,
-    iperf_report_t *report
+    iperf_traffic_report_t *report
 ) 
 ```
 
 
 **Warning:**
 
-Not thread safe. Recommended to be used only inside `report_handler` callback and only when iperf state is`IPERF_RUNNING` or`IPERF_CLOSED`.
+Not thread safe. Recommended to be used only inside `state_handler` callback and only when iperf state is`IPERF_RUNNING` or`IPERF_CLOSED`.
 
 
 
@@ -237,76 +105,12 @@ Not thread safe. Recommended to be used only inside `report_handler` callback an
 * ESP\_OK on success
 * ESP\_ERR\_INVALID\_ARG if invalid argument
 * ESP\_ERR\_INVALID\_STATE if instance with associated ID was not found
-### function `iperf_get_traffic_type`
-
-_Get the traffic type of instance._
-```c
-esp_err_t iperf_get_traffic_type (
-    iperf_id_t id,
-    iperf_traffic_type_t *traffic_type
-) 
-```
-
-
-**Note:**
-
-Not thread safe. Recommended to be used only inside `report_handler` callback.
-
-
-
-**Parameters:**
-
-
-* `id` iperf instance ID 
-* `traffic_type` pointer where to store traffic type 
-
-
-**Returns:**
-
-
-
-* ESP\_OK on success
-* ESP\_ERR\_INVALID\_ARG if invalid argument
-* ESP\_ERR\_INVALID\_STATE if instance with associated ID was not found
-### function `iperf_register_report_handler`
-
-_Set report handler during runtime for instance with given id._
-```c
-esp_err_t iperf_register_report_handler (
-    iperf_id_t id,
-    iperf_report_handler_func_t handler,
-    void *priv
-) 
-```
-
-
-**Note:**
-
-This function is not thread safe. Recommended to be used only inside `report_handler` callback.
-
-
-
-**Parameters:**
-
-
-* `id` iperf instance ID 
-* `handler` function pointer to the handler 
-* `priv` pointer to user's private data later passed to the report function
-
-
-**Returns:**
-
-
-
-* ESP\_OK on success
-* ESP\_ERR\_INVALID\_ARG if invalid argument
-* ESP\_ERR\_INVALID\_STATE if instance with associated ID was not found
 ### function `iperf_report_output`
 
-_Default Iperf traffic report function._
+_Iperf report output, defaults to_ `iperf_default_report_print`
 ```c
 IPERF_WEAK_ATTR void iperf_report_output (
-    const iperf_report_t *data
+    const iperf_report_t *report
 ) 
 ```
 
@@ -324,7 +128,7 @@ This function is set to "weak", allowing users to override it with a custom impl
 **Parameters:**
 
 
-* `data` iperf traffic report data
+* `report` iperf traffic report data
 ### function `iperf_start_instance`
 
 _Start iperf instance._
@@ -511,12 +315,6 @@ _Default config to run iperf in server mode._
 ) ((cfg) &= (~(flag)))
 ```
 
-### define `IPERF_FLAG_REPORT_NO_PRINT`
-
-```c
-#define IPERF_FLAG_REPORT_NO_PRINT BIT(4)
-```
-
 ### define `IPERF_FLAG_SERVER`
 
 ```c
@@ -609,6 +407,202 @@ _Default config to run iperf in server mode._
 ```c
 #define IPERF_TRAFFIC_TASK_STACK CONFIG_IPERF_DEF_TRAFFIC_TASK_STACK
 ```
+
+
+## File iperf_types.h
+
+
+
+
+
+## Structures and Types
+
+| Type | Name |
+| ---: | :--- |
+| struct | [**iperf\_cfg\_t**](#struct-iperf_cfg_t) <br>_Iperf Configuration._ |
+| struct | [**iperf\_connect\_info\_report\_t**](#struct-iperf_connect_info_report_t) <br>_Structure of data for iperf report traffic data._ |
+| typedef int8\_t | [**iperf\_id\_t**](#typedef-iperf_id_t)  <br>_iperf instance ID_ |
+| enum  | [**iperf\_ip\_type\_t**](#enum-iperf_ip_type_t)  <br>_Iperf IP type._ |
+| enum  | [**iperf\_output\_format\_t**](#enum-iperf_output_format_t)  <br>_Iperf output report format._ |
+| struct | [**iperf\_report\_t**](#struct-iperf_report_t) <br>_Structure of data for iperf report._ |
+| enum  | [**iperf\_report\_type\_t**](#enum-iperf_report_type_t)  <br>_iperf report type_ |
+| struct | [**iperf\_state\_data\_t**](#struct-iperf_state_data_t) <br>_Structure of data for iperf state handler._ |
+| typedef void(\* | [**iperf\_state\_handler\_func\_t**](#typedef-iperf_state_handler_func_t)  <br>_function to handle iperf state transitions_ |
+| enum  | [**iperf\_state\_t**](#enum-iperf_state_t)  <br>_Iperf status._ |
+| struct | [**iperf\_traffic\_report\_t**](#struct-iperf_traffic_report_t) <br>_Structure of data for iperf report traffic data._ |
+| enum  | [**iperf\_traffic\_type\_t**](#enum-iperf_traffic_type_t)  <br>_Iperf traffic type._ |
+
+
+## Macros
+
+| Type | Name |
+| ---: | :--- |
+| define  | [**IPERF\_WEAK\_ATTR**](#define-iperf_weak_attr)  \_\_attribute\_\_((weak))<br> |
+
+## Structures and Types Documentation
+
+### struct `iperf_cfg_t`
+
+_Iperf Configuration._
+
+Variables:
+
+-  int32\_t bw_lim  <br>bandwidth limit in bits/s
+
+-  esp\_ip\_addr\_t destination  <br>destination IP
+
+-  uint16\_t dport  <br>destination port
+
+-  uint32\_t flag  <br>iperf flag
+
+-  iperf\_output\_format\_t format  <br>output format, bits/sec, Kbits/sec, Mbits/sec
+
+-  iperf\_id\_t instance_id  <br>iperf instance id
+
+-  uint32\_t interval  <br>report interval in secs
+
+-  uint16\_t len_send_buf  <br>send buffer length in bytes
+
+-  esp\_ip\_addr\_t source  <br>source IP
+
+-  uint16\_t sport  <br>source port
+
+-  iperf\_state\_handler\_func\_t state_handler  <br>iperf state handler function
+
+-  void \* state_handler_priv  <br>pointer to user's private data later passed to state\_handler function
+
+-  uint32\_t time  <br>total send time in secs
+
+-  int tos  <br>set socket TOS field
+
+-  uint8\_t traffic_task_priority  <br>iperf traffic task priority
+
+### struct `iperf_connect_info_report_t`
+
+_Structure of data for iperf report traffic data._
+
+Variables:
+
+-  int socket  <br>socket id
+
+-  struct sockaddr\_storage target_addr  <br>Either the address to receive from if server, or send to if client
+
+### typedef `iperf_id_t`
+
+_iperf instance ID_
+```c
+typedef int8_t iperf_id_t;
+```
+
+### enum `iperf_ip_type_t`
+
+_Iperf IP type._
+```c
+enum iperf_ip_type_t {
+    IPERF_IP_TYPE_IPV4,
+    IPERF_IP_TYPE_IPV6
+};
+```
+
+### enum `iperf_output_format_t`
+
+_Iperf output report format._
+```c
+enum iperf_output_format_t {
+    MBITS_PER_SEC,
+    KBITS_PER_SEC,
+    BITS_PER_SEC
+};
+```
+
+### struct `iperf_report_t`
+
+_Structure of data for iperf report._
+
+Variables:
+
+-  union iperf\_report\_t::@0 @1  
+
+-  [**iperf\_connect\_info\_report\_t**](#struct-iperf_connect_info_report_t) connect_info  <br>connect info report for report type: PCONNECT\_INFO
+
+-  iperf\_id\_t instance_id  <br>iperf instance id
+
+-  iperf\_report\_type\_t report_type  <br>iperf report type
+
+-  [**iperf\_traffic\_report\_t**](#struct-iperf_traffic_report_t) traffic  <br>traffic report for report type: PERIOD and SUMMARY
+
+### enum `iperf_report_type_t`
+
+_iperf report type_
+```c
+enum iperf_report_type_t {
+    IPERF_REPORT_CONNECT_INFO,
+    IPERF_REPORT_PERIOD,
+    IPERF_REPORT_SUMMARY
+};
+```
+
+### struct `iperf_state_data_t`
+
+_Structure of data for iperf state handler._
+
+Variables:
+
+-  iperf\_state\_t state  <br>iperf state
+
+-  iperf\_traffic\_type\_t traffic_type  <br>iperf traffic iperf
+
+### typedef `iperf_state_handler_func_t`
+
+_function to handle iperf state transitions_
+```c
+typedef void(* iperf_state_handler_func_t) (iperf_id_t instance_id, iperf_state_data_t *data, void *priv);
+```
+
+### enum `iperf_state_t`
+
+_Iperf status._
+```c
+enum iperf_state_t {
+    IPERF_STARTED,
+    IPERF_STOPPED,
+    IPERF_RUNNING,
+    IPERF_CLOSED
+};
+```
+
+### struct `iperf_traffic_report_t`
+
+_Structure of data for iperf report traffic data._
+
+Variables:
+
+-  uint32\_t end_sec  <br>report data end time since iperf has started
+
+-  iperf\_output\_format\_t output_format  <br>output format, bits/sec, Kbits/sec, Mbits/sec
+
+-  double period_bytes  <br>data transferred in bytes within this period
+
+-  uint32\_t period_start_sec  <br>period start time since iperf has started
+
+-  uint64\_t total_transfer_bytes  <br>total bytes transferred since iperf has started
+
+### enum `iperf_traffic_type_t`
+
+_Iperf traffic type._
+```c
+enum iperf_traffic_type_t {
+    IPERF_TCP_SERVER,
+    IPERF_TCP_CLIENT,
+    IPERF_UDP_SERVER,
+    IPERF_UDP_CLIENT,
+    IPERF_TRAFFIC_TYPE_INVALID
+};
+```
+
+
+
+## Macros Documentation
 
 ### define `IPERF_WEAK_ATTR`
 

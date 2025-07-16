@@ -1,3 +1,4 @@
 pytest-embedded-serial-esp
 pytest-embedded-idf
 pytest-timeout
+esptool>=4.9

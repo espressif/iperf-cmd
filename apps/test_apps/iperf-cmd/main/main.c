@@ -29,10 +29,10 @@ void my_report_func()
 }
 
 /* override weak func */
-void iperf_report_output(const iperf_report_t* data)
+void iperf_report_output(const iperf_report_t* report)
 {
     my_report_func();
-    iperf_default_report_output(data);
+    iperf_default_report_output(report);
 }
 
 void app_main(void)

@@ -13,6 +13,7 @@
 #include "esp_netif_ip_addr.h"
 #include "esp_bit_defs.h"
 #include "sdkconfig.h"
+#include "iperf_types.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -33,8 +34,6 @@ extern "C" {
 #define IPERF_IPV4_ENABLED LWIP_IPV4
 #define IPERF_IPV6_ENABLED LWIP_IPV6
 
-#define IPERF_WEAK_ATTR __attribute__((weak))
-
 #define IPERF_FLAG_SET(cfg, flag) ((cfg) |= (flag))
 #define IPERF_FLAG_CLR(cfg, flag) ((cfg) &= (~(flag)))
 
@@ -42,7 +41,6 @@ extern "C" {
 #define IPERF_FLAG_SERVER           BIT(1)
 #define IPERF_FLAG_TCP              BIT(2)
 #define IPERF_FLAG_UDP              BIT(3)
-#define IPERF_FLAG_REPORT_NO_PRINT  BIT(4)
 
 #define IPERF_DEFAULT_PORT          5001
 #define IPERF_DEFAULT_INTERVAL      3
@@ -113,107 +111,9 @@ extern "C" {
 #define IPERF_ALL_INSTANCES_ID              (-1)
 
 /**
- * @brief Iperf output report format
- */
-typedef enum {
-    MBITS_PER_SEC,
-    KBITS_PER_SEC,
-    BITS_PER_SEC,
-} iperf_output_format_t;
-
-/**
- * @brief Iperf traffic type
- */
-typedef enum {
-    IPERF_TCP_SERVER,
-    IPERF_TCP_CLIENT,
-    IPERF_UDP_SERVER,
-    IPERF_UDP_CLIENT,
-} iperf_traffic_type_t;
-
-/**
- * @brief Iperf status
- */
-typedef enum {
-    IPERF_STARTED,  /**< iperf started sending/receiving data */
-    IPERF_STOPPED,  /**< iperf stopped sending/receiving data */
-    IPERF_RUNNING,  /**< iperf is running and periodic report interval exceeded */
-    IPERF_CLOSED    /**< iperf instance finished its execution and is being closed */
-} iperf_state_t;
-
-/**
- * @brief Iperf IP type
- */
-typedef enum {
-    IPERF_IP_TYPE_IPV4,
-    IPERF_IP_TYPE_IPV6
-} iperf_ip_type_t;
-
-/**
- * @brief iperf instance ID
- */
-typedef int8_t iperf_id_t;
-
-/**
- * @brief Structure of data for iperf report
- *
- */
- typedef struct {
-    iperf_id_t instance_id;  /**< iperf instance id */
-    uint32_t start_sec;  /**< report data start time since iperf has started */
-    uint32_t end_sec;  /**< report data end time since iperf has started */
-    double period_bytes;  /**< data transferred in bytes in this period */
-    iperf_output_format_t output_format;  /**< output format, bits/sec, Kbits/sec, Mbits/sec */
-    double total_transfer;  /**< total data transferred since iperf has started (available when using iperf_get_report) */
-    float average_bandwidth;  /**< average bandwidth since iperf has started (available when using iperf_get_report) */
-} iperf_report_t;
-
-/**
- * @brief iperf report handler function to receive runtime details from iperf
- */
-typedef void (*iperf_report_handler_func_t)(iperf_id_t id, iperf_state_t iperf_state, void *priv);
-
-/**
- * @brief Iperf Configuration
- */
-typedef struct {
-    esp_ip_addr_t destination; /**< destination IP */
-    esp_ip_addr_t source; /**< source IP */
-    iperf_output_format_t format;  /**< output format, bits/sec, Kbits/sec, Mbits/sec */
-    iperf_report_handler_func_t report_handler;  /**< iperf status report function */
-    void *report_handler_priv; /**< pointer to user's private data later passed to report function */
-    uint32_t flag; /**< iperf flag */
-    uint32_t interval;  /**< report interval in secs */
-    uint32_t time;  /**< total send time in secs */
-    int32_t bw_lim;  /**< bandwidth limit in bits/s */
-    uint16_t dport;  /**< destination port */
-    uint16_t sport;  /**< source port */
-    uint16_t len_send_buf;  /**< send buffer length in bytes */
-    int tos;  /**< set socket TOS field */
-    uint8_t traffic_task_priority;  /**< iperf traffic task priority */
-    iperf_id_t instance_id;  /**< iperf instance id */
-} iperf_cfg_t;
-
-/**
- * @brief Set report handler during runtime for instance with given id
- *
- * @note This function is not thread safe. Recommended to be used only inside `report_handler` callback.
- *
- * @param id iperf instance ID
- * @param handler function pointer to the handler
- * @param priv pointer to user's private data later passed to the report function
- *
- * @return
- *      - ESP_OK on success
- *      - ESP_ERR_INVALID_ARG if invalid argument
- *      - ESP_ERR_INVALID_STATE if instance with associated ID was not found
- */
-esp_err_t iperf_register_report_handler(iperf_id_t id, iperf_report_handler_func_t handler, void *priv);
-
-/**
  * @brief Get the current performance report of instance.
  *
- * @warning Not thread safe. Recommended to be used only inside `report_handler` callback
+ * @warning Not thread safe. Recommended to be used only inside `state_handler` callback
  *          and only when iperf state is `IPERF_RUNNING` or `IPERF_CLOSED`.
  *
  * @param id iperf instance ID
@@ -223,40 +123,26 @@ esp_err_t iperf_register_report_handler(iperf_id_t id, iperf_report_handler_func
  *      - ESP_ERR_INVALID_ARG if invalid argument
  *      - ESP_ERR_INVALID_STATE if instance with associated ID was not found
  */
-esp_err_t iperf_get_report(iperf_id_t id, iperf_report_t *report);
+esp_err_t iperf_get_traffic_report(iperf_id_t id, iperf_traffic_report_t *report);
 
 /**
- * @brief Iperf default traffic report function.
+ * @brief Iperf default report output (print) function.
  *
- * @param data iperf traffic report data
+ * @param report iperf report data
  */
-void iperf_default_report_output(const iperf_report_t* data);
+void iperf_default_report_output(const iperf_report_t* report);
 
 /**
-* @brief Default Iperf traffic report function.
+* @brief Iperf report output, defaults to `iperf_default_report_print`
 *
 * Outputs bandwidth statistics in the Iperf format, e.g.:
 * "[  3]  3.0- 4.0 sec   128 KBytes  1.05 Mbits/sec".
 *
 * @note This function is set to "weak", allowing users to override it with a custom implementation.
 *
-* @param data iperf traffic report data
+* @param report iperf traffic report data
 */
-IPERF_WEAK_ATTR void iperf_report_output(const iperf_report_t* data);
-
-/**
- * @brief Get the traffic type of instance.
- *
- * @note Not thread safe. Recommended to be used only inside `report_handler` callback.
- *
- * @param id iperf instance ID
- * @param traffic_type pointer where to store traffic type
- * @return
- *      - ESP_OK on success
- *      - ESP_ERR_INVALID_ARG if invalid argument
- *      - ESP_ERR_INVALID_STATE if instance with associated ID was not found
- */
-esp_err_t iperf_get_traffic_type(iperf_id_t id, iperf_traffic_type_t *traffic_type);
+IPERF_WEAK_ATTR void iperf_report_output(const iperf_report_t* report);
 
 /**
  * @brief Start iperf instance

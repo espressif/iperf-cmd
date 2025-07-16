@@ -14,41 +14,10 @@
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "iperf.h"
+#include "iperf_private.h"
 
-#if __has_include("esp_check.h")
-#include "esp_check.h"
-#else
-/* compatible with esp-idf v4.3 */
-#define ESP_RETURN_ON_ERROR(x, log_tag, format, ...) do {                                       \
-        esp_err_t err_rc_ = (x);                                                                \
-        if (unlikely(err_rc_ != ESP_OK)) {                                                      \
-            ESP_LOGE(log_tag, "%s(%d): " format, __FUNCTION__, __LINE__, ##__VA_ARGS__);        \
-            return err_rc_;                                                                     \
-        }                                                                                       \
-    } while(0)
-
-#define ESP_GOTO_ON_ERROR(x, goto_tag, log_tag, format, ...) do {                               \
-        esp_err_t err_rc_ = (x);                                                                \
-        if (unlikely(err_rc_ != ESP_OK)) {                                                      \
-            ESP_LOGE(log_tag, "%s(%d): " format, __FUNCTION__, __LINE__, ##__VA_ARGS__);        \
-            ret = err_rc_;                                                                      \
-            goto goto_tag;                                                                      \
-        }                                                                                       \
-    } while(0)
-
-#define ESP_GOTO_ON_FALSE(a, err_code, goto_tag, log_tag, format, ...) do {                                \
-        if (unlikely(!(a))) {                                                                              \
-            ESP_LOGE(log_tag, "%s(%d): " format, __FUNCTION__, __LINE__ __VA_OPT__(,) __VA_ARGS__);        \
-            ret = err_code;                                                                                \
-            goto goto_tag;                                                                                 \
-        }                                                                                                  \
-    } while (0)
-
-
-#endif
 
 static const char *TAG = "iperf";
-#define TAG_ID_STR "iperf(id=%" PRIi8 ")"
 
 #ifdef CONFIG_FREERTOS_NUMBER_OF_CORES
 /* new in idf v5.3 */
@@ -64,82 +33,6 @@ static const char *TAG = "iperf";
 
 #define TAG_ID iperf_instance->tag
 
-typedef struct {
-    uint32_t period_data_snapshot;
-    uint32_t report_interval_sec;
-}
-#if CONFIG_COMPILER_OPTIMIZATION_SIZE || CONFIG_COMPILER_OPTIMIZATION_PERF
-__attribute__((aligned(8))) // IDF-12777
-#endif
-iperf_report_task_data_t;
-// When -Os or -O2 is enabled, if 8-byte alignment is not explicitly enforced when defining the structure,
-// using atomic_exchange on that structure type may lead to issues, and the value may not be exchanged correctly.
-
-typedef struct {
-    float val;
-    uint32_t k;
-} iperf_running_average_t;
-
-typedef struct {
-    iperf_output_format_t format;
-    float period_bandwidth;
-    float period_transfer;
-    iperf_running_average_t average_bandwidth;
-    double curr_total_transfer;
-    uint32_t prev_time_sec;
-    uint32_t current_time_sec;
-} iperf_stats_t;
-
-typedef struct {
-    esp_timer_handle_t tx_timer;
-    esp_timer_handle_t tick_timer;
-    uint64_t tx_period_us;
-    uint32_t ticks;
-    uint32_t to_report_ticks;
-} iperf_timers_t;
-
-typedef struct {
-    esp_ip_addr_t destination;
-    esp_ip_addr_t source;
-    struct sockaddr_storage target_addr; // Either the address to receive from if server, or send to if client
-    uint16_t dport;
-    uint16_t sport;
-    int tos;  /* setsockopt does not accept uint8 size */
-    uint8_t *buffer;
-    uint32_t buffer_len;
-} iperf_socket_info_t;
-
-typedef enum {
-    IPERF_PRINT_CONNECT_INFO,
-    IPERF_PRINT_STATS,
-    IPERF_PRINT_SUMMARY
-} iperf_print_type_t;
-
-typedef struct iperf_instance_data_struct {
-    LIST_ENTRY(iperf_instance_data_struct) _list_entry;
-
-    iperf_id_t id;
-    bool is_running;
-    char tag[sizeof(TAG_ID_STR) + 1];
-    uint32_t flags;
-
-    TaskHandle_t report_task_hdl;
-    TaskHandle_t traffic_task_hdl;
-
-    iperf_timers_t timers;
-    uint32_t interval;
-    uint32_t time;
-
-    int socket;
-    iperf_socket_info_t socket_info;
-
-    _Atomic uint32_t period_data_passed;
-    _Atomic iperf_report_task_data_t report_task_data;
-    iperf_stats_t stats;
-
-    iperf_report_handler_func_t report_handler;
-    void *report_handler_priv;
-} iperf_instance_data_t;
 
 typedef esp_err_t (*iperf_list_exec_fn)(iperf_instance_data_t *iperf_instance, void *ctx);
 
@@ -151,82 +44,20 @@ static SemaphoreHandle_t s_list_lock = NULL;
 
 static esp_err_t iperf_stop_exec(iperf_instance_data_t *iperf_instance);
 static void iperf_delete_instance(iperf_instance_data_t *iperf_instance);
+static iperf_traffic_type_t iperf_get_traffic_type_internal(iperf_instance_data_t *iperf_instance);
+extern void iperf_report_task(void *arg);
 
 
-IPERF_WEAK_ATTR void iperf_report_output(const iperf_report_t* data)
+/* iperf state: IPERF_STARTED, IPERF_RUNNING, IPERF_STOPPED, IPERF_CLOSED */
+void iperf_state_action(iperf_state_t iperf_state, iperf_instance_data_t *iperf_instance)
 {
-    iperf_default_report_output(data);
-}
-
-static void iperf_print_report(iperf_print_type_t print_type, iperf_instance_data_t *iperf_instance)
-{
-    if ((iperf_instance->flags & IPERF_FLAG_REPORT_NO_PRINT) == IPERF_FLAG_REPORT_NO_PRINT) {
-        return;
+    if (iperf_instance->state_handler) {
+        iperf_state_data_t data = {};
+        data.state = iperf_state;
+        data.traffic_type = iperf_get_traffic_type_internal(iperf_instance);
+        iperf_instance->state_handler(iperf_instance->id, &data, iperf_instance->state_handler_priv);
     }
-    iperf_report_t report_data = {};
-    switch (print_type) {
-    case IPERF_PRINT_CONNECT_INFO: {
-        if (iperf_instance->socket_info.target_addr.ss_family == AF_INET) {
-#if IPERF_IPV4_ENABLED
-            struct sockaddr_in local_addr4 = { 0 };
-            socklen_t addr4_len = sizeof(local_addr4);
-            if (getsockname(iperf_instance->socket, (struct sockaddr *)&local_addr4, &addr4_len) == 0) {
-                char localaddr_str[INET_ADDRSTRLEN];
-                inet_ntop(AF_INET, &local_addr4.sin_addr.s_addr, localaddr_str, sizeof(localaddr_str));
-                char targetaddr_str[INET_ADDRSTRLEN];
-                struct sockaddr_in *target_addr4 = (struct sockaddr_in *)&iperf_instance->socket_info.target_addr;
-                inet_ntop(AF_INET, &target_addr4->sin_addr.s_addr, targetaddr_str, sizeof(targetaddr_str));
-                printf("[%3d] local %s:%" PRIu16 " connected to %s:%" PRIu16 "\n",
-                       iperf_instance->id,
-                       localaddr_str, ntohs(local_addr4.sin_port),
-                       targetaddr_str, ntohs(target_addr4->sin_port));
-            }
-#endif
-        } else if (iperf_instance->socket_info.target_addr.ss_family == AF_INET6) {
-#if IPERF_IPV6_ENABLED
-            struct sockaddr_in6 local_addr6 = { 0 };
-            socklen_t addr6_len = sizeof(local_addr6);
-            if (getsockname(iperf_instance->socket, (struct sockaddr *)&local_addr6, &addr6_len) == 0) {
-                char localaddr_str[INET6_ADDRSTRLEN];
-                inet_ntop(AF_INET6, &local_addr6.sin6_addr, localaddr_str, sizeof(localaddr_str));
-                char targetaddr_str[INET6_ADDRSTRLEN];
-                struct sockaddr_in6 *target_addr6 = (struct sockaddr_in6 *)&iperf_instance->socket_info.target_addr;
-                inet_ntop(AF_INET6, &target_addr6->sin6_addr, targetaddr_str, sizeof(targetaddr_str));
-                printf("[%3d] local [%s]:%" PRIu16 " connected to [%s]:%" PRIu16 "\n",
-                       iperf_instance->id,
-                       localaddr_str, ntohs(local_addr6.sin6_port),
-                       targetaddr_str, ntohs(target_addr6->sin6_port));
-            }
-#endif
-        }
-        break;
-    }
-    case IPERF_PRINT_STATS:
-        /* fallthrough */
-    case IPERF_PRINT_SUMMARY:
-        report_data.instance_id = iperf_instance->id;
-        report_data.start_sec = iperf_instance->stats.prev_time_sec;
-        report_data.end_sec = iperf_instance->stats.current_time_sec;
-        report_data.period_bytes = iperf_instance->stats.period_transfer;
-        report_data.output_format = iperf_instance->stats.format;
-        if (print_type == IPERF_PRINT_SUMMARY) {
-            report_data.start_sec = 0;
-            report_data.period_bytes = iperf_instance->stats.curr_total_transfer;
-        }
-        iperf_report_output(&report_data);
-
-        break;
-    default:
-        break;
-    }
-}
-
-static void iperf_state_action(iperf_state_t iperf_state, iperf_instance_data_t *iperf_instance)
-{
-    if (iperf_instance->report_handler) {
-        iperf_instance->report_handler(iperf_instance->id, iperf_state, iperf_instance->report_handler_priv);
-    }
-    // release report task to print connect info
+    /* release report task to print connect info */
     if (iperf_state == IPERF_STARTED && iperf_instance->report_task_hdl) {
         xTaskNotifyGive(iperf_instance->report_task_hdl);
     }
@@ -249,13 +80,13 @@ IRAM_ATTR static void tick_timer_cb(void *arg)
     if (iperf_instance->timers.to_report_ticks >= iperf_instance->interval || iperf_instance->timers.ticks >= iperf_instance->time) {
         iperf_report_task_data_t report_task_data_tmp = atomic_load(&iperf_instance->report_task_data);
         // zero indicates the report task processed data
-        if (report_task_data_tmp.report_interval_sec == 0) {
+        if (report_task_data_tmp.period_sec == 0) {
             report_task_data_tmp.period_data_snapshot = atomic_exchange(&iperf_instance->period_data_passed, 0);
-            report_task_data_tmp.report_interval_sec = iperf_instance->timers.to_report_ticks;
+            report_task_data_tmp.period_sec = iperf_instance->timers.to_report_ticks;
         } else {
             // if report task hasn't executed yet, try extend the report period
             report_task_data_tmp.period_data_snapshot += atomic_load(&iperf_instance->period_data_passed);
-            report_task_data_tmp.report_interval_sec += iperf_instance->timers.to_report_ticks;
+            report_task_data_tmp.period_sec += iperf_instance->timers.to_report_ticks;
             ESP_LOGW(TAG_ID, "report_task is starving for execution time!");
         }
         atomic_store(&iperf_instance->report_task_data, report_task_data_tmp);
@@ -352,44 +183,6 @@ inline static bool iperf_is_tcp_client(iperf_instance_data_t *iperf_instance)
 inline static bool iperf_is_tcp_server(iperf_instance_data_t *iperf_instance)
 {
     return ((iperf_instance->flags & IPERF_FLAG_SERVER) && (iperf_instance->flags & IPERF_FLAG_TCP));
-}
-
-static void iperf_report_task(void *arg)
-{
-    iperf_instance_data_t *iperf_instance = (iperf_instance_data_t *) arg;
-    double data_len;
-    bool connnect_info_printed = false;
-
-    do {
-        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-        if (!connnect_info_printed) {
-            iperf_print_report(IPERF_PRINT_CONNECT_INFO, iperf_instance);
-            connnect_info_printed = true;
-        }
-        iperf_report_task_data_t report_task_data_tmp = { 0 };
-        // load a local copy and zero the atomic var to indicate report has been processed
-        report_task_data_tmp = atomic_exchange(&iperf_instance->report_task_data, report_task_data_tmp);
-
-        // check if valid data is available
-        if (report_task_data_tmp.report_interval_sec != 0) {
-            data_len = report_task_data_tmp.period_data_snapshot;
-            iperf_instance->stats.period_transfer = data_len;
-            iperf_instance->stats.curr_total_transfer += data_len;
-            iperf_instance->stats.prev_time_sec = iperf_instance->stats.current_time_sec;
-            iperf_instance->stats.current_time_sec += report_task_data_tmp.report_interval_sec;
-            // report IPERF_RUNNING to the handler
-            iperf_state_action(IPERF_RUNNING, iperf_instance);
-            iperf_print_report(IPERF_PRINT_STATS, iperf_instance);
-        }
-    } while (iperf_instance->is_running);
-
-    if (iperf_instance->stats.current_time_sec != 0) {
-        iperf_print_report(IPERF_PRINT_SUMMARY, iperf_instance);
-    }
-
-    iperf_instance->report_task_hdl = NULL;
-    ESP_LOGD(TAG_ID, "report task to be deleted");
-    vTaskDelete(NULL);
 }
 
 IRAM_ATTR static esp_err_t iperf_client_loop(iperf_instance_data_t *iperf_instance)
@@ -875,9 +668,8 @@ static esp_err_t iperf_start_tasks(iperf_instance_data_t *iperf_instance, const 
 
     // Note: task creation order matters due to the error handling and instance clean up sequence
     // Start report task
-    xResult = xTaskCreate(iperf_report_task, IPERF_REPORT_TASK_NAME, IPERF_REPORT_TASK_STACK, (void*)iperf_instance,
-                          IPERF_REPORT_TASK_PRIORITY, &(iperf_instance->report_task_hdl));
-    ESP_GOTO_ON_FALSE(xResult == pdPASS, ESP_FAIL, err_report, TAG_ID, "cannot start iperf-related tasks: could not start report task");
+    iperf_instance->report_task_hdl = iperf_create_report_task(iperf_instance);
+    ESP_GOTO_ON_FALSE(iperf_instance->report_task_hdl != NULL, ESP_FAIL, err_report, TAG_ID, "cannot start iperf-related tasks: could not start report task");
 
     // Set task priority to default if not specified
     uint8_t traffic_task_priority = IPERF_DEFAULT_TRAFFIC_TASK_PRIORITY;
@@ -896,30 +688,6 @@ err_report:
     return ret;
 }
 
-static void iperf_copy_stats_to_report(iperf_instance_data_t *iperf_instance, iperf_report_t *report)
-{
-    report->instance_id = iperf_instance->id;
-    report->start_sec = iperf_instance->stats.prev_time_sec;
-    report->end_sec = iperf_instance->stats.current_time_sec;
-    report->period_bytes = iperf_instance->stats.period_transfer;
-    report->total_transfer = iperf_instance->stats.curr_total_transfer;
-    report->output_format = iperf_instance->stats.format;
-    /* calculate bandwidth */
-    switch (report->output_format) {
-        case MBITS_PER_SEC:
-            report->average_bandwidth = report->total_transfer / report->end_sec / 1000.0 / 1000.0 * 8;
-            break;
-        case KBITS_PER_SEC:
-            report->average_bandwidth = report->total_transfer / report->end_sec / 1000.0 * 8;
-            break;
-        case BITS_PER_SEC:
-            report->average_bandwidth = report->total_transfer / report->end_sec * 8;
-            break;
-        default:
-            /* never happen */
-            break;
-    }
-}
 
 static int iperf_esp_err_to_errno(esp_err_t esp_err)
 {
@@ -979,7 +747,7 @@ static bool iperf_list_check_id_available_unsafe(iperf_id_t id)
     return true;
 }
 
-static iperf_instance_data_t* iperf_list_get_instance_by_id(iperf_id_t id)
+iperf_instance_data_t* iperf_list_get_instance_by_id(iperf_id_t id)
 {
     iperf_instance_data_t *result = NULL;
     iperf_instance_data_t *instance;
@@ -1106,55 +874,26 @@ static void iperf_delete_instance(iperf_instance_data_t *iperf_instance)
     }
 }
 
-esp_err_t iperf_get_traffic_type(iperf_id_t id, iperf_traffic_type_t *traffic_type)
+/* internal function */
+static iperf_traffic_type_t iperf_get_traffic_type_internal(iperf_instance_data_t *iperf_instance)
 {
-    esp_err_t ret = ESP_OK;
-    ESP_GOTO_ON_FALSE(id >= 0, ESP_ERR_INVALID_ARG, err, TAG, "invalid id provided (id=%" PRIi8 ")", id);
-    ESP_GOTO_ON_FALSE(traffic_type != NULL, ESP_ERR_INVALID_ARG, err, TAG, "invalid pointer to traffic_type");
-    iperf_instance_data_t *iperf_instance = iperf_list_get_instance_by_id(id);
-    ESP_GOTO_ON_FALSE(iperf_instance != NULL, ESP_ERR_INVALID_STATE, err, TAG, "cannot get data: instance (id=%" PRIi8 ") was not found", id);
+    // prevent compiler from producing warning because ret is not used, but needed by ESP_GOTO_ON_ERROR
+    __attribute__((unused)) esp_err_t ret;
+
+    ESP_GOTO_ON_ERROR(iperf_instance == NULL, err, TAG, "invalid argument");
     if (iperf_is_tcp_server(iperf_instance)) {
-        *traffic_type = IPERF_TCP_SERVER;
+        return IPERF_TCP_SERVER;
     } else if (iperf_is_tcp_client(iperf_instance)) {
-        *traffic_type = IPERF_TCP_CLIENT;
+        return IPERF_TCP_CLIENT;
     }  else if (iperf_is_udp_server(iperf_instance)) {
-        *traffic_type = IPERF_UDP_SERVER;
+        return IPERF_UDP_SERVER;
     }  else if (iperf_is_udp_client(iperf_instance)) {
-        *traffic_type = IPERF_UDP_CLIENT;
+        return IPERF_UDP_CLIENT;
     } else {
-        ESP_GOTO_ON_FALSE(false, ESP_ERR_INVALID_STATE, err, TAG_ID, "invalid configuration");
+        ESP_LOGE(TAG, "can not get iperf traffic type, id=%d", iperf_instance->id);
     }
 err:
-    return ret;
-}
-
-esp_err_t iperf_get_report(iperf_id_t id, iperf_report_t *report)
-{
-    esp_err_t ret = ESP_OK;
-    ESP_GOTO_ON_FALSE(id >= 0, ESP_ERR_INVALID_ARG, err, TAG, "invalid id provided (id=%" PRIi8 ")", id);
-    ESP_GOTO_ON_FALSE(report != NULL, ESP_ERR_INVALID_ARG, err, TAG, "invalid pointer to report");
-    iperf_instance_data_t *iperf_instance = iperf_list_get_instance_by_id(id);
-    ESP_GOTO_ON_FALSE(iperf_instance != NULL, ESP_ERR_INVALID_STATE, err, TAG, "cannot get data: instance (id=%" PRIi8 ") was not found", id);
-    iperf_copy_stats_to_report(iperf_instance, report);
-err:
-    return ret;
-}
-
-esp_err_t iperf_register_report_handler(iperf_id_t id, iperf_report_handler_func_t handler, void *priv)
-{
-    esp_err_t ret = ESP_OK;
-    ESP_GOTO_ON_FALSE(id >= 0, ESP_ERR_INVALID_ARG, err, TAG, "invalid id provided (id=%" PRIi8 ")", id);
-    iperf_instance_data_t *iperf_instance = iperf_list_get_instance_by_id(id);
-    ESP_GOTO_ON_FALSE(iperf_instance != NULL, ESP_ERR_INVALID_STATE, err, TAG, "cannot register handler: instance (id=%" PRIi8 ") was not found", id);
-    iperf_instance->report_handler = handler;
-    if (handler == NULL) {
-        iperf_instance->report_handler_priv = NULL;
-    } else {
-        iperf_instance->report_handler_priv = priv;
-    }
-    return ESP_OK;
-err:
-    return ret;
+    return IPERF_TRAFFIC_TYPE_INVALID;
 }
 
 iperf_id_t iperf_start_instance(const iperf_cfg_t *cfg)
@@ -1183,13 +922,13 @@ iperf_id_t iperf_start_instance(const iperf_cfg_t *cfg)
     // create instance specific tag used in logs
     snprintf(iperf_instance->tag, sizeof(iperf_instance->tag), TAG_ID_STR, iperf_instance->id);
 
-    iperf_instance->stats.format = cfg->format;
+    iperf_instance->traffic.output_format = cfg->format;
     iperf_instance->time = cfg->time;
     iperf_instance->interval = cfg->interval;
     iperf_instance->flags = cfg->flag;
-    if (cfg->report_handler != NULL) {
-        iperf_instance->report_handler = cfg->report_handler;
-        iperf_instance->report_handler_priv = cfg->report_handler_priv;
+    if (cfg->state_handler != NULL) {
+        iperf_instance->state_handler = cfg->state_handler;
+        iperf_instance->state_handler_priv = cfg->state_handler_priv;
     }
 
     // populate config information about socket

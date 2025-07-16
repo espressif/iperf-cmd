@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2024-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -13,21 +13,22 @@ extern "C" {
 #endif
 
 /**
- * @brief Register user's report callback function.
+ * @brief Sets the global default iperf state handler. This handler will be passed to each iperf instance as a configuration parameter.
  *
- * @note Registered function is then passed to iperf instances as configuration parameter at their startup.
+ * @note This function should be called before starting the console.
  *
- * @param report_hndl report handler function to process runtime details from iperf
- * @param priv pointer to user's private data later passed to report function
+ * @param state_hndl state handler function to process runtime details from iperf
+ * @param priv pointer to user's private data later passed to state handler function
  * @return
  *      - ESP_OK on success
  */
-esp_err_t iperf_cmd_register_report_handler(iperf_report_handler_func_t report_hndl, void *priv);
+esp_err_t iperf_cmd_set_iperf_state_handler(iperf_state_handler_func_t state_hndl, void *priv);
 
 /**
  * @brief Registers console commands: iperf.
  *
- * @return ESP_OK on success
+ * @return
+ *      - ESP_OK on success
  */
 esp_err_t iperf_cmd_register_iperf(void);
 
