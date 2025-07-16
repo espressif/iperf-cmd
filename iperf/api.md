@@ -63,13 +63,13 @@
 | define  | [**IPERF\_IPV6\_ENABLED**](#define-iperf_ipv6_enabled)  LWIP\_IPV6<br> |
 | define  | [**IPERF\_REPORT\_TASK\_NAME**](#define-iperf_report_task_name)  "iperf\_report"<br> |
 | define  | [**IPERF\_REPORT\_TASK\_PRIORITY**](#define-iperf_report_task_priority)  CONFIG\_IPERF\_DEF\_REPORT\_TASK\_PRIORITY<br> |
-| define  | [**IPERF\_REPORT\_TASK\_STACK**](#define-iperf_report_task_stack)  4096<br> |
+| define  | [**IPERF\_REPORT\_TASK\_STACK**](#define-iperf_report_task_stack)  CONFIG\_IPERF\_DEF\_REPORT\_TASK\_STACK<br> |
 | define  | [**IPERF\_SOCKET\_ACCEPT\_TIMEOUT**](#define-iperf_socket_accept_timeout)  5<br> |
 | define  | [**IPERF\_SOCKET\_MAX\_NUM**](#define-iperf_socket_max_num)  CONFIG\_LWIP\_MAX\_SOCKETS<br> |
 | define  | [**IPERF\_SOCKET\_RX\_TIMEOUT**](#define-iperf_socket_rx_timeout)  CONFIG\_IPERF\_DEF\_SOCKET\_RX\_TIMEOUT<br> |
 | define  | [**IPERF\_SOCKET\_TCP\_TX\_TIMEOUT**](#define-iperf_socket_tcp_tx_timeout)  CONFIG\_IPERF\_DEF\_SOCKET\_TCP\_TX\_TIMEOUT<br> |
 | define  | [**IPERF\_TRAFFIC\_TASK\_NAME**](#define-iperf_traffic_task_name)  "iperf\_traffic"<br> |
-| define  | [**IPERF\_TRAFFIC\_TASK\_STACK**](#define-iperf_traffic_task_stack)  4096<br> |
+| define  | [**IPERF\_TRAFFIC\_TASK\_STACK**](#define-iperf_traffic_task_stack)  CONFIG\_IPERF\_DEF\_TRAFFIC\_TASK\_STACK<br> |
 | define  | [**IPERF\_WEAK\_ATTR**](#define-iperf_weak_attr)  \_\_attribute\_\_((weak))<br> |
 
 ## Structures and Types Documentation
@@ -571,7 +571,7 @@ _Default config to run iperf in server mode._
 ### define `IPERF_REPORT_TASK_STACK`
 
 ```c
-#define IPERF_REPORT_TASK_STACK 4096
+#define IPERF_REPORT_TASK_STACK CONFIG_IPERF_DEF_REPORT_TASK_STACK
 ```
 
 ### define `IPERF_SOCKET_ACCEPT_TIMEOUT`
@@ -607,7 +607,7 @@ _Default config to run iperf in server mode._
 ### define `IPERF_TRAFFIC_TASK_STACK`
 
 ```c
-#define IPERF_TRAFFIC_TASK_STACK 4096
+#define IPERF_TRAFFIC_TASK_STACK CONFIG_IPERF_DEF_TRAFFIC_TASK_STACK
 ```
 
 ### define `IPERF_WEAK_ATTR`
