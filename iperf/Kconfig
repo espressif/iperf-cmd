@@ -20,11 +20,23 @@ menu "Iperf"
         help
            The value is used for iperf traffic task priority.
 
-    config IPERF_DEF_REPORT_TASK_PRIORITY
-        int "iperf result report task priority"
-        default 6
+    config IPERF_DEF_TRAFFIC_TASK_STACK
+        int "default iperf traffic task stack size"
+        default 4096
         help
-           The value is used for iperf result report task priority.
+           The value is used for iperf traffic task stack size.
+
+    config IPERF_DEF_REPORT_TASK_PRIORITY
+        int "iperf report task priority"
+        default 10
+        help
+           The value is used for iperf report task priority.
+
+    config IPERF_DEF_REPORT_TASK_STACK
+        int "iperf report task stack size"
+        default 4096
+        help
+           The value is used for iperf report task stack size.
 
     config IPERF_DEF_TCP_TX_BUFFER_LEN
         int "default tcp tx buffer length"

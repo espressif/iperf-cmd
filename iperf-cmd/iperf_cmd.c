@@ -50,8 +50,8 @@ typedef struct {
 } iperf_args_t;
 
 static iperf_args_t iperf_args;
-static iperf_report_handler_func_t s_report_hndl;
-static void *s_report_priv;
+static iperf_state_handler_func_t s_iperf_state_hndl;
+static void *s_iperf_state_priv;
 
 static int32_t iperf_bandwidth_convert(const char *bandwidth_str)
 {
@@ -262,8 +262,8 @@ static int cmd_do_iperf(int argc, char **argv)
         cfg.tos = iperf_args.tos->ival[0];
     }
 
-    cfg.report_handler = s_report_hndl;
-    cfg.report_handler_priv = s_report_priv;
+    cfg.state_handler = s_iperf_state_hndl;
+    cfg.state_handler_priv = s_iperf_state_priv;
 
 #if IPERF_IPV6_ENABLED
     char dip_str[INET6_ADDRSTRLEN];
@@ -321,10 +321,10 @@ static int cmd_do_iperf(int argc, char **argv)
     return 0;
 }
 
-esp_err_t iperf_cmd_register_report_handler(iperf_report_handler_func_t report_hndl, void *priv)
+esp_err_t iperf_cmd_set_iperf_state_handler(iperf_state_handler_func_t report_hndl, void *priv)
 {
-    s_report_hndl = report_hndl;
-    s_report_priv = priv;
+    s_iperf_state_hndl = report_hndl;
+    s_iperf_state_priv = priv;
     return ESP_OK;
 }
 
