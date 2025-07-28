@@ -40,15 +40,20 @@ menu "Iperf"
 
     config IPERF_DEF_TCP_TX_BUFFER_LEN
         int "default tcp tx buffer length"
-        default 16384
+        default 16384 if (IDF_TARGET_LINUX || SPIRAM)
+        default 2880
         help
            The value of default tcp tx buffer length.
+           default smaller for chips if psram is not enabled.
+
 
     config IPERF_DEF_TCP_RX_BUFFER_LEN
         int "default tcp rx buffer length"
-        default 16384
+        default 16384 if (IDF_TARGET_LINUX || SPIRAM)
+        default 2880
         help
            The value of default tcp rx buffer length.
+           default smaller for chips if psram is not enabled.
 
     config IPERF_DEF_IPV4_UDP_TX_BUFFER_LEN
         int "default ipv4 udp tx buffer length"
@@ -64,9 +69,11 @@ menu "Iperf"
 
     config IPERF_DEF_UDP_RX_BUFFER_LEN
         int "default udp rx buffer length"
+        default 16384 if (IDF_TARGET_LINUX || SPIRAM)
         default 1500
         help
            The value of default udp rx buffer length.
            Not recommended to set the value too small due to udp does not support fragmentation.
+           default smaller for chips if psram is not enabled.
 
 endmenu
