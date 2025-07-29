@@ -30,6 +30,9 @@ def check_version(version: str) -> None:
         dependencies = data['dependencies']
         for key, val in dependencies.items():
             if key in ['espressif/iperf', 'espressif/iperf-cmd']:
+                if 'version' not in val:
+                    # ignore if version is not set (test_apps)
+                    continue
                 assert val['version'] == f'={version}', f'dependencies version mismatch: {component_yml}'
 
 

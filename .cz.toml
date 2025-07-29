@@ -3,7 +3,7 @@ version = "0.1.3"
 name = "cz_conventional_commits"
 version_files = [
     "apps/iperf/main/idf_component.yml",
-    "apps/linux-target/main/idf_component.yml",
+    "apps/linux_target/main/idf_component.yml",
     "iperf/idf_component.yml",
     "iperf/README.md",
     "iperf-cmd/idf_component.yml",
