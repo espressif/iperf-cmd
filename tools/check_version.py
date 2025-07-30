@@ -18,6 +18,9 @@ def check_version(version: str) -> None:
     if version.startswith('v'):
         version = version[1:]
     for component_yml in COMPONENT_YML_FILES:
+        if 'managed_components/' in str(component_yml):
+            # ignore build cache dir
+            continue
         with open(component_yml, encoding='utf-8') as f:
             data = yaml.load(f, Loader=yaml.SafeLoader)
         assert data
@@ -30,6 +33,9 @@ def check_version(version: str) -> None:
         dependencies = data['dependencies']
         for key, val in dependencies.items():
             if key in ['espressif/iperf', 'espressif/iperf-cmd']:
+                if 'version' not in val:
+                    # ignore if version is not set (test_apps)
+                    continue
                 assert val['version'] == f'={version}', f'dependencies version mismatch: {component_yml}'
 
 
