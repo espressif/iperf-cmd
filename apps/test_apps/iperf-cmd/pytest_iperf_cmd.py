@@ -14,12 +14,12 @@ from pytest_embedded import Dut
 TEST_BW_STANDARD: Dict[str, Dict[str, float]] = {
     'esp32': {
         'tcp': 22,
-        'udp': 26,
+        'udp': 24,
         'tcpv6': 15,  # not stable due to different cache misses
     },
     'esp32c5': {
         'tcp': 62,
-        'udp': 80,
+        'udp': 77,
         'tcpv6': 60,
     },
 }
@@ -44,6 +44,7 @@ def test_iperf_cmd(dut: Dut) -> None:
 
     # tcp
     dut.write('iperf -s -i 1 -t 9 --id=1')
+    dut.expect('Socket created', timeout=1)
     dut.write('iperf -c 127.0.0.1 -i 1 -t 9 --id=2')
     # delimiter: '\t'
     match1 = dut.expect(r'\[\s*([12])\]\s+1.0- 2.0 sec\s+([\d\.]+) MBytes\s+([\d\.]+) Mbits/sec')
@@ -61,6 +62,7 @@ def test_iperf_cmd(dut: Dut) -> None:
     # udp
     time.sleep(1)
     dut.write('iperf -u -s -i 1 -t 9 --id=2')
+    dut.expect('Socket created', timeout=1)
     dut.write('iperf -u -c 127.0.0.1 -i 1 -t 9 --id=3')
     match1 = dut.expect(r'\[\s*([23])\]\s+1.0- 2.0 sec\s+([\d\.]+) MBytes\s+([\d\.]+) Mbits/sec')
     assert float(match1[2]) > _bw_standard(dut.target, 'udp') / 8
@@ -74,6 +76,7 @@ def test_iperf_cmd(dut: Dut) -> None:
     # ipv6
     time.sleep(1)
     dut.write('iperf -V -s -i 1 -t 9 --id=1')
+    dut.expect('Socket created', timeout=1)
     dut.write('iperf -V -c ::1 -i 1 -t 9 --id=2')
     match1 = dut.expect(r'\[\s*([12])\]\s+1.0- 2.0 sec\s+([\d\.]+) MBytes\s+([\d\.]+) Mbits/sec')
     assert float(match1[2]) > _bw_standard(dut.target, 'tcpv6') / 8

@@ -299,8 +299,6 @@ static esp_err_t iperf_start_and_run_tcp_server(iperf_instance_data_t *iperf_ins
         ESP_GOTO_ON_FALSE(setsockopt(listen_socket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) == 0, ESP_FAIL, err, TAG_ID, "failed to set SO_REUSEADDR - errno %d", errno);
         ESP_GOTO_ON_FALSE(setsockopt(listen_socket, IPPROTO_IPV6, IPV6_V6ONLY, &opt, sizeof(opt)) == 0, ESP_FAIL, err, TAG_ID, "failed to set IPV6_V6ONLY - errno %d", errno);
 
-        ESP_LOGD(TAG_ID, "Socket created");
-
         ESP_GOTO_ON_FALSE(bind(listen_socket, (struct sockaddr *)&listen_addr6, sizeof(listen_addr6)) == 0,
                           ESP_FAIL, err, TAG_ID, "cannot start TCP server: socket is unable to bind - errno %d, IPPROTO: %d", errno, AF_INET6);
         ESP_GOTO_ON_FALSE(listen(listen_socket, 0) == 0, ESP_FAIL, err, TAG_ID, "cannot start TCP server: an error occurred during listen - errno %d", errno);
@@ -320,8 +318,6 @@ static esp_err_t iperf_start_and_run_tcp_server(iperf_instance_data_t *iperf_ins
 
         ESP_GOTO_ON_FALSE(setsockopt(listen_socket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) == 0, ESP_FAIL, err, TAG_ID, "failed to set SO_REUSEADDR - errno %d", errno);
 
-        ESP_LOGD(TAG_ID, "Socket created");
-
         ESP_GOTO_ON_FALSE(bind(listen_socket, (struct sockaddr *)&listen_addr4, sizeof(listen_addr4)) == 0,
                           ESP_FAIL, err, TAG_ID, "cannot start TCP server: socket is unable to bind - errno %d, IPPROTO: %d", errno, AF_INET);
 
@@ -331,6 +327,7 @@ static esp_err_t iperf_start_and_run_tcp_server(iperf_instance_data_t *iperf_ins
         ESP_GOTO_ON_FALSE(false, ESP_ERR_INVALID_ARG, err, TAG_ID, "cannot start TCP server: invalid address type");
 #endif
     }
+    ESP_LOGI(TAG_ID, "[TCP Server] Socket created");
 
     timeout.tv_sec = IPERF_SOCKET_ACCEPT_TIMEOUT;
     ESP_GOTO_ON_FALSE(setsockopt(listen_socket, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) == 0, ESP_FAIL, err, TAG_ID, "failed to set SO_RCVTIMEO - errno %d", errno);
@@ -464,7 +461,6 @@ static esp_err_t iperf_start_and_run_udp_server(iperf_instance_data_t *iperf_ins
 
         iperf_instance->socket = socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
         ESP_GOTO_ON_FALSE((iperf_instance->socket >= 0), ESP_FAIL, err, TAG_ID, "cannot start UDP server: unable to create socket - errno %d", errno);
-        ESP_LOGD(TAG_ID, "UDP socket created");
 
         ESP_GOTO_ON_FALSE(setsockopt(iperf_instance->socket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) == 0, ESP_FAIL, err, TAG_ID, "failed to set SO_REUSEADDR - errno %d", errno);
 
@@ -485,7 +481,6 @@ static esp_err_t iperf_start_and_run_udp_server(iperf_instance_data_t *iperf_ins
         listen_addr4.sin_addr.s_addr = iperf_instance->socket_info.source.u_addr.ip4.addr;
         iperf_instance->socket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
         ESP_GOTO_ON_FALSE((iperf_instance->socket >= 0), ESP_FAIL, err, TAG_ID, "cannot start UDP server: unable to create socket - errno %d", errno);
-        ESP_LOGD(TAG_ID, "UDP socket created");
 
         ESP_GOTO_ON_FALSE(setsockopt(iperf_instance->socket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) == 0, ESP_FAIL, err, TAG_ID, "failed to set SO_REUSEADDR - errno %d", errno);
         ESP_GOTO_ON_FALSE(bind(iperf_instance->socket, (struct sockaddr *)&listen_addr4, sizeof(struct sockaddr_in)) == 0,
@@ -498,6 +493,7 @@ static esp_err_t iperf_start_and_run_udp_server(iperf_instance_data_t *iperf_ins
         ESP_GOTO_ON_FALSE(false, ESP_ERR_INVALID_ARG, err, TAG_ID, "cannot start UDP server: invalid address type");
 #endif
     }
+    ESP_LOGI(TAG_ID, "[UDP Server] Socket created");
 
     timeout.tv_sec = IPERF_SOCKET_RX_TIMEOUT;
     ESP_GOTO_ON_FALSE(setsockopt(iperf_instance->socket, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) == 0, ESP_FAIL, err, TAG_ID, "failed to set SO_RCVTIMEO - errno %d", errno);
@@ -540,7 +536,6 @@ static esp_err_t iperf_start_and_run_udp_client(iperf_instance_data_t *iperf_ins
 
         iperf_instance->socket = socket(AF_INET6, SOCK_DGRAM, IPPROTO_IPV6);
         ESP_GOTO_ON_FALSE((iperf_instance->socket >= 0), ESP_FAIL, err, TAG_ID, "cannot start UDP client: unable to create socket - errno %d", errno);
-        ESP_LOGD(TAG_ID, "UDP socket created, sending to [" IPV6STR "]:%d", IPV62STR(iperf_instance->socket_info.destination.u_addr.ip6), iperf_instance->socket_info.dport);
 
         ESP_GOTO_ON_FALSE(setsockopt(iperf_instance->socket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) == 0, ESP_FAIL, err, TAG_ID, "failed to set SO_REUSEADDR - errno %d", errno);
         memcpy(&iperf_instance->socket_info.target_addr, &dest_addr6, sizeof(dest_addr6));
@@ -557,6 +552,7 @@ static esp_err_t iperf_start_and_run_udp_client(iperf_instance_data_t *iperf_ins
             inet6_ntoa_r(src_addr6.sin6_addr, addr_str, sizeof(addr_str));
             ESP_LOGD(TAG_ID, "UDP client socket bound [%s]:%d", addr_str, iperf_instance->socket_info.sport);
         }
+        ESP_LOGD(TAG_ID, "[UDP Client] Socket created, sending to [" IPV6STR "]:%d", IPV62STR(iperf_instance->socket_info.destination.u_addr.ip6), iperf_instance->socket_info.dport);
 #else
         ESP_GOTO_ON_FALSE(false, ESP_ERR_INVALID_ARG, err, TAG_ID, "cannot start UDP client: invalid address type");
 #endif
@@ -568,7 +564,6 @@ static esp_err_t iperf_start_and_run_udp_client(iperf_instance_data_t *iperf_ins
 
         iperf_instance->socket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
         ESP_GOTO_ON_FALSE((iperf_instance->socket >= 0), ESP_FAIL, err, TAG_ID, "cannot start UDP client: unable to create socket - errno %d", errno);
-        ESP_LOGD(TAG_ID, "UDP socket created, sending to " IPSTR ":%d", IP2STR(&iperf_instance->socket_info.destination.u_addr.ip4), iperf_instance->socket_info.dport);
 
         ESP_GOTO_ON_FALSE(setsockopt(iperf_instance->socket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) == 0, ESP_FAIL, err, TAG_ID, "failed to set SO_REUSEADDR - errno %d", errno);
         memcpy(&iperf_instance->socket_info.target_addr, &dest_addr4, sizeof(dest_addr4));
@@ -585,10 +580,12 @@ static esp_err_t iperf_start_and_run_udp_client(iperf_instance_data_t *iperf_ins
             inet_ntoa_r(src_addr.sin_addr, addr_str, sizeof(addr_str));
             ESP_LOGD(TAG_ID, "UDP client socket bound, %s:%d", addr_str, ntohs(src_addr.sin_port));
         }
+        ESP_LOGD(TAG_ID, "[UDP Client] Socket created, sending to " IPSTR ":%d", IP2STR(&iperf_instance->socket_info.destination.u_addr.ip4), iperf_instance->socket_info.dport);
 #else
         ESP_GOTO_ON_FALSE(false, ESP_ERR_INVALID_ARG, err, TAG_ID, "cannot start UDP client: invalid address type");
 #endif
     }
+
     ESP_GOTO_ON_FALSE(setsockopt(iperf_instance->socket, IPPROTO_IP, IP_TOS, &(iperf_instance->socket_info.tos), sizeof(iperf_instance->socket_info.tos)) == 0, ESP_FAIL, err, TAG_ID, "failed to set IP_TOS - errno %d", errno);
 
     ESP_GOTO_ON_ERROR(iperf_start_timers(iperf_instance), err, TAG_ID, "failed to start internal timers");
