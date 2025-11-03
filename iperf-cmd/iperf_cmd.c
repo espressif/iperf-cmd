@@ -126,6 +126,8 @@ static int cmd_do_iperf(int argc, char **argv)
         } else {
             iperf_stop_instance(iperf_args.id->ival[0]);
         }
+        /* log for test scriptes */
+        ESP_LOGI(APP_TAG, "DONE.IPERF_STOP,OK");
         return 0;
     }
 

@@ -42,10 +42,15 @@ def test_iperf_cmd(dut: Dut) -> None:
     dut.expect('iperf>')
     time.sleep(1)
 
+    # test iperf --abort
+    dut.write('iperf --abort')
+    dut.expect('IPERF_STOP,OK', timeout=1)
+
     # tcp
     dut.write('iperf -s -i 1 -t 9 --id=1')
     dut.expect('Socket created', timeout=1)
     dut.write('iperf -c 127.0.0.1 -i 1 -t 9 --id=2')
+    dut.expect('Interval', timeout=1)
     # delimiter: '\t'
     match1 = dut.expect(r'\[\s*([12])\]\s+1.0- 2.0 sec\s+([\d\.]+) MBytes\s+([\d\.]+) Mbits/sec')
     assert float(match1[2]) > _bw_standard(dut.target, 'tcp') / 8  # MBytes
@@ -64,6 +69,7 @@ def test_iperf_cmd(dut: Dut) -> None:
     dut.write('iperf -u -s -i 1 -t 9 --id=2')
     dut.expect('Socket created', timeout=1)
     dut.write('iperf -u -c 127.0.0.1 -i 1 -t 9 --id=3')
+    dut.expect('Interval', timeout=1)
     match1 = dut.expect(r'\[\s*([23])\]\s+1.0- 2.0 sec\s+([\d\.]+) MBytes\s+([\d\.]+) Mbits/sec')
     assert float(match1[2]) > _bw_standard(dut.target, 'udp') / 8
     assert float(match1[3]) > _bw_standard(dut.target, 'udp')
@@ -78,6 +84,7 @@ def test_iperf_cmd(dut: Dut) -> None:
     dut.write('iperf -V -s -i 1 -t 9 --id=1')
     dut.expect('Socket created', timeout=1)
     dut.write('iperf -V -c ::1 -i 1 -t 9 --id=2')
+    dut.expect('Interval', timeout=1)
     match1 = dut.expect(r'\[\s*([12])\]\s+1.0- 2.0 sec\s+([\d\.]+) MBytes\s+([\d\.]+) Mbits/sec')
     assert float(match1[2]) > _bw_standard(dut.target, 'tcpv6') / 8
     assert float(match1[3]) > _bw_standard(dut.target, 'tcpv6')
