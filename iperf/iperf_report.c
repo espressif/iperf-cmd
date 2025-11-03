@@ -63,12 +63,16 @@ static void iperf_print_connect_info(const iperf_report_t *report)
     }
 }
 
+static void iperf_print_traffic_header()
+{
+    printf("\n[ ID] Interval\t\tTransfer\tBandwidth\n");
+}
+
 static void iperf_print_traffic_report(const iperf_report_t* report)
 {
     double transfer = 0.0;
     double bandwidth = 0.0;
     char format_ch = '\0';
-    static bool is_iperf_header_displayed = false;
 
     /* period or summary */
     uint64_t data_bytes = report->traffic.period_bytes;
@@ -103,12 +107,6 @@ static void iperf_print_traffic_report(const iperf_report_t* report)
     }
     bandwidth = transfer / (end_sec - start_sec) * 8;
 
-    // only prints the header once
-    if (is_iperf_header_displayed == false) {
-        printf("\n[ ID] Interval\t\tTransfer\tBandwidth\n");
-        is_iperf_header_displayed = true;
-    }
-
     printf("[%3d] %2" PRIu32 ".0-%2" PRIu32 ".0 sec\t%2.2f %cBytes\t%.2f %cbits/sec\n",
         report->instance_id,
         start_sec,
@@ -124,6 +122,7 @@ void iperf_default_report_output(const iperf_report_t* report)
     switch (report->report_type) {
     case IPERF_REPORT_CONNECT_INFO:
         iperf_print_connect_info(report);
+        iperf_print_traffic_header();
         break;
     case IPERF_REPORT_PERIOD:
         /* fallthrough */
