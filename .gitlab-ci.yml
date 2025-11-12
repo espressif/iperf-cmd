@@ -67,6 +67,8 @@ build_iperf:
       - ESP_IMG: espressif/idf:release-v5.1
       - ESP_IMG: espressif/idf:release-v5.2
       - ESP_IMG: espressif/idf:release-v5.3
+      - ESP_IMG: espressif/idf:release-v5.4
+      - ESP_IMG: espressif/idf:release-v5.5
   artifacts:
     paths:
       - "**/build*/build_log.txt"
