@@ -1,5 +1,11 @@
 # Changelog
 
+## [v0.1.4](https://github.com/espressif/iperf-cmd/releases/tag/v0.1.4)
+
+### Updates
+
+- update dependencies [espressif/iperf](https://components.espressif.com/components/espressif/iperf) to v0.1.4
+
 ## [v0.1.3](https://github.com/espressif/iperf-cmd/releases/tag/v0.1.3)
 
 ### Features

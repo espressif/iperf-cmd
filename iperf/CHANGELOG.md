@@ -1,5 +1,12 @@
 # Changelog
 
+## [v0.1.4](https://github.com/espressif/iperf-cmd/releases/tag/v0.1.4)
+
+### Bug Fixes
+
+- fix implicit declaration of function 'gettimeofday' ([c5aff377](https://github.com/espressif/iperf-cmd/commit/c5aff377))
+- optimize iperf report statistics ([528d969a](https://github.com/espressif/iperf-cmd/commit/528d969a))
+
 ## [v0.1.3](https://github.com/espressif/iperf-cmd/releases/tag/v0.1.3)
 
 ### Features
