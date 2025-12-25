@@ -5,6 +5,7 @@ import os
 import pathlib
 import shutil
 import subprocess
+import sys
 import tempfile
 
 import gitlab
@@ -64,6 +65,15 @@ def main() -> None:
     with open(PROJECT_ROOT / 'iperf-cmd' / 'idf_component.yml') as f:
         data = yaml.safe_load(f)
         current_version = 'v' + data['version']
+
+    current_commit_msg = subprocess.check_output(
+        ['git', 'log', '-1'],
+        cwd=PROJECT_ROOT,
+    ).decode('utf-8')
+    if 'ci(bump)' in current_commit_msg or 'bump/new_version' in current_commit_msg:
+        print('Skip preview changelog for new version commit, exiting.')
+        sys.exit(0)
+
     # copy files to new temp directory
     tmp_dir = tempfile.mkdtemp()
     tmp_repo_dir = os.path.join(tmp_dir, 'iperf-cmd')
@@ -72,20 +82,27 @@ def main() -> None:
         ['git', 'log', '-10', '--pretty=oneline'],
         cwd=tmp_repo_dir,
     )
-    # bump new version
-    next_version = (
-        'v'
-        + subprocess.check_output(
-            ['cz', 'bump', '--get-next', '--yes'],
-            cwd=tmp_repo_dir,
+    try:
+        # bump new version
+        next_version = (
+            'v'
+            + subprocess.check_output(
+                ['cz', 'bump', '--get-next', '--yes'],
+                cwd=tmp_repo_dir,
+                stderr=subprocess.PIPE,
+            )
+            .decode('utf-8')
+            .strip()
         )
-        .decode('utf-8')
-        .strip()
-    )
-    subprocess.check_call(
-        ['cz', 'bump', '--devrelease', '1', '--yes'],
-        cwd=tmp_repo_dir,
-    )
+        subprocess.check_call(
+            ['cz', 'bump', '--devrelease', '1', '--yes'],
+            cwd=tmp_repo_dir,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+    except subprocess.CalledProcessError as e:
+        print(f'Error during version bump: {type(e)}: {str(e)}')
+        raise e
     # get changelog
     iperf_changelog = get_new_changelog(
         str(PROJECT_ROOT / 'iperf' / 'CHANGELOG.md'),
