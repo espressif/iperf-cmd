@@ -63,7 +63,7 @@ static void iperf_print_connect_info(const iperf_report_t *report)
     }
 }
 
-static void iperf_print_traffic_header()
+static void iperf_print_traffic_header(void)
 {
     printf("\n[ ID] Interval\t\tTransfer\tBandwidth\n");
 }

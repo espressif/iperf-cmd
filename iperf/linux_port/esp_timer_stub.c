@@ -216,7 +216,7 @@ void my_callback2(void* arg)
 {
     printf("Timer expired 2 \n");
 }
-int main()
+int main(void)
 {
     #include <unistd.h>
     esp_timer_handle_t timer;
