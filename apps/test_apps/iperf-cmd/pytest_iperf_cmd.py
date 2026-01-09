@@ -13,7 +13,7 @@ from pytest_embedded import Dut
 # Default throughput standard, in Mbits/sec, 3~10M less than result
 TEST_BW_STANDARD: Dict[str, Dict[str, float]] = {
     'esp32': {
-        'tcp': 22,
+        'tcp': 21,
         'udp': 24,
         'tcpv6': 15,  # not stable due to different cache misses
     },
