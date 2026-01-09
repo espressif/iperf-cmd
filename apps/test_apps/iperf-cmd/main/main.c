@@ -19,7 +19,7 @@
 
 #include "iperf_cmd.h"
 
-void my_report_func()
+void my_report_func(void)
 {
     static int i  = 0;
     if (i == 0 ) {
