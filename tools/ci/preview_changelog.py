@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
+# SPDX-FileCopyrightText: 2025-2026 Espressif Systems (Shanghai) CO LTD
 # SPDX-License-Identifier: Apache-2.0
 import difflib
 import os
@@ -101,6 +101,14 @@ def main() -> None:
             stderr=subprocess.PIPE,
         )
     except subprocess.CalledProcessError as e:
+        output = ''
+        if e.stdout:
+            output += e.stdout.decode('utf-8')
+        if e.stderr:
+            output += e.stderr.decode('utf-8')
+        if 'NO_COMMITS_TO_BUMP' in output:
+            print('No commits to bump version, exiting.')
+            sys.exit(0)
         print(f'Error during version bump: {type(e)}: {str(e)}')
         raise e
     # get changelog
