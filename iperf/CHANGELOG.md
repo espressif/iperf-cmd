@@ -1,5 +1,11 @@
 # Changelog
 
+## [v1.0.1](https://github.com/espressif/iperf-cmd/releases/tag/v1.0.1)
+
+### Bug Fixes
+
+- update function prototypes for -Wstrict-prototypes ([f9083cc8](https://github.com/espressif/iperf-cmd/commit/f9083cc8))
+
 ## [v1.0.0](https://github.com/espressif/iperf-cmd/releases/tag/v1.0.0)
 
 ### Features

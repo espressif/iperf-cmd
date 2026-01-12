@@ -1,8 +1,8 @@
 ## IDF Component Manager Manifest File
 dependencies:
   espressif/iperf:
-    version: =1.0.0
+    version: =1.0.1
     override_path: ../../../iperf
   espressif/iperf-cmd:
-    version: =1.0.0
+    version: =1.0.1
     override_path: ../../../iperf-cmd
