@@ -509,6 +509,8 @@ enum iperf_ip_type_t {
 _Iperf output report format._
 ```c
 enum iperf_output_format_t {
+    MBYTES_PER_SEC,
+    KBYTES_PER_SEC,
     MBITS_PER_SEC,
     KBITS_PER_SEC,
     BITS_PER_SEC

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2025-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -73,6 +73,7 @@ static void iperf_print_traffic_report(const iperf_report_t* report)
     double transfer = 0.0;
     double bandwidth = 0.0;
     char format_ch = '\0';
+    bool is_byte = false; // bit = false, byte = true
 
     /* period or summary */
     uint64_t data_bytes = report->traffic.period_bytes;
@@ -101,20 +102,36 @@ static void iperf_print_traffic_report(const iperf_report_t* report)
             transfer = data_bytes / 1000.0 / 1000.0;
             format_ch = 'M';
             break;
+        case KBYTES_PER_SEC: /* '-f K' */
+            transfer = data_bytes / 1024.0;
+            format_ch = 'K';
+            is_byte = true;
+            break;
+        case MBYTES_PER_SEC: /* '-f M' */
+            transfer = data_bytes / 1024.0 / 1024.0;
+            format_ch = 'M';
+            is_byte = true;
+            break;
         default:
             /* should not happen */
             break;
     }
-    bandwidth = transfer / (end_sec - start_sec) * 8;
 
-    printf("[%3d] %2" PRIu32 ".0-%2" PRIu32 ".0 sec\t%2.2f %cBytes\t%.2f %cbits/sec\n",
+    if (is_byte) {
+        bandwidth = transfer / (end_sec - start_sec);
+    } else {
+        bandwidth = transfer / (end_sec - start_sec) * 8;
+    }
+
+    printf("[%3d] %2" PRIu32 ".0-%2" PRIu32 ".0 sec\t%2.2f %cBytes\t%.2f %c%ss/sec\n",
         report->instance_id,
         start_sec,
         end_sec,
         transfer,
         format_ch,
         bandwidth,
-        format_ch);
+        format_ch,
+        is_byte ? "Byte" : "bit");
 }
 
 void iperf_default_report_output(const iperf_report_t* report)
