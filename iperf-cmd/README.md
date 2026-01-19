@@ -26,7 +26,7 @@ This repository contains `iperf` command based esp-idf console.
     -i, --interval=<interval>  seconds between periodic bandwidth reports
     -t, --time=<time>  time in seconds to transmit for (default 10 secs)
     -b, --bandwidth=<bandwidth>  #[kmgKMG]  bandwidth to send at in bits/sec
-    -f, --format=<format>  'b' = bits/sec 'k' = Kbits/sec 'm' = Mbits/sec
+    -f, --format=<format>  'b' = bits/sec 'k' = Kbits/sec 'K' = Kbytes/sec 'm' = Mbits/sec 'M' = Mbytes/sec
     -S, --tos=<tos>  set the socket's IP_TOS (byte) field
       --id=<id>  iperf instance ID. default: 'increase' for create, 'all' for abort.
         --abort  abort running iperf
@@ -40,6 +40,8 @@ This repository contains `iperf` command based esp-idf console.
   'b' = bits/sec
   'k' = Kbits/sec
   'm' = Mbits/sec
+  'K' = Kbytes/sec
+  'M' = Mbytes/sec
 ```
 
 ### Installation

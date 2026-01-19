@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2024-2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2024-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -255,6 +255,10 @@ static int cmd_do_iperf(int argc, char **argv)
             cfg.format = KBITS_PER_SEC;
         } else if (format_ch == 'm') {
             cfg.format = MBITS_PER_SEC;
+        } else if (format_ch == 'K') {
+            cfg.format = KBYTES_PER_SEC;
+        } else if (format_ch == 'M') {
+            cfg.format = MBYTES_PER_SEC;
         } else {
             ESP_LOGW(APP_TAG, "ignore invalid format: %c", format_ch);
         }
@@ -355,7 +359,7 @@ esp_err_t iperf_cmd_register_iperf(void)
     iperf_args.interval = arg_int0("i", "interval", "<interval>", "seconds between periodic bandwidth reports");
     iperf_args.time = arg_int0("t", "time", "<time>", "time in seconds to transmit for (default 10 secs)");
     iperf_args.bw_limit = arg_str0("b", "bandwidth", "<bandwidth>", "#[kmgKMG]  bandwidth to send at in bits/sec");
-    iperf_args.format = arg_str0("f", "format", "<format>", "'b' = bits/sec 'k' = Kbits/sec 'm' = Mbits/sec");
+    iperf_args.format = arg_str0("f", "format", "<format>", "'b' = bits/sec 'k' = Kbits/sec 'K' = Kbytes/sec 'm' = Mbits/sec 'M' = Mbytes/sec");
     iperf_args.tos = arg_int0("S", "tos", "<tos>", "set the socket's IP_TOS (byte) field");
     /* iperf instance id */
     iperf_args.id = arg_int0(NULL, "id", "<id>", "iperf instance ID. default: 'increase' for create, 'all' for abort.");

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2024-2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2024-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -56,6 +56,12 @@ static float average_bandwidth_from_report(iperf_traffic_report_t* traffic)
     }
     /* calculate bandwidth */
     switch (traffic->output_format) {
+        case MBYTES_PER_SEC:
+            average_bandwidth = traffic->total_transfer_bytes / traffic->end_sec / 1024.0 / 1024.0;
+            break;
+        case KBYTES_PER_SEC:
+            average_bandwidth = traffic->total_transfer_bytes / traffic->end_sec / 1024.0;
+            break;
         case MBITS_PER_SEC:
             average_bandwidth = traffic->total_transfer_bytes / traffic->end_sec / 1000.0 / 1000.0 * 8;
             break;
@@ -71,6 +77,26 @@ static float average_bandwidth_from_report(iperf_traffic_report_t* traffic)
             break;
     }
     return average_bandwidth;
+}
+
+static const char *get_unit_string_from_format(iperf_output_format_t format)
+{
+    switch (format) {
+        case MBYTES_PER_SEC:
+            return "MBps";
+        case KBYTES_PER_SEC:
+            return "KBps";
+        case MBITS_PER_SEC:
+            return "Mbps";
+        case KBITS_PER_SEC:
+            return "Kbps";
+        case BITS_PER_SEC:
+            return "bps";
+        default:
+            /* never happen */
+            ESP_LOGE(TAG, "can not get unit string for format: %d", format);
+            return "";
+    }
 }
 
 static void iperf_server_state_cb(iperf_id_t id, iperf_state_data_t* data, void *priv)
@@ -160,9 +186,10 @@ static void udp_basic_test(esp_ip_addr_t esp_addr_any, esp_ip_addr_t esp_addr_lo
     ESP_LOGI(TAG, "bits: 0x%lx", bits);
     TEST_ASSERT_BITS_HIGH(server_all_states_bits | client_all_states_bits, bits);
 
-    char units = iperf_data.client_report.output_format == MBITS_PER_SEC ? 'M' : 'K';
-    ESP_LOGI(TAG, "average client throughput: %.2lf %cbps", average_bandwidth_from_report(&(iperf_data.client_report)), units);
-    ESP_LOGI(TAG, "average server throughput: %.2lf %cbps", average_bandwidth_from_report(&(iperf_data.server_report)), units);
+    const char *unit_str = get_unit_string_from_format(iperf_data.client_report.output_format);
+
+    ESP_LOGI(TAG, "average client throughput: %.2lf %s", average_bandwidth_from_report(&(iperf_data.client_report)), unit_str);
+    ESP_LOGI(TAG, "average server throughput: %.2lf %s", average_bandwidth_from_report(&(iperf_data.server_report)), unit_str);
     TEST_ASSERT_GREATER_THAN_FLOAT(0.1, average_bandwidth_from_report(&(iperf_data.client_report)));
     TEST_ASSERT_GREATER_THAN_FLOAT(0.1, average_bandwidth_from_report(&(iperf_data.server_report)));
     TEST_ASSERT_FLOAT_WITHIN(0.5, average_bandwidth_from_report(&(iperf_data.client_report)), average_bandwidth_from_report(&(iperf_data.server_report)));
@@ -186,8 +213,8 @@ static void udp_basic_test(esp_ip_addr_t esp_addr_any, esp_ip_addr_t esp_addr_lo
     ESP_LOGI(TAG, "bits: 0x%lx", bits);
     TEST_ASSERT_BITS_HIGH(server_all_states_bits | client_all_states_bits, bits);
 
-    ESP_LOGI(TAG, "average client throughput: %.2lf %cbps", average_bandwidth_from_report(&(iperf_data.client_report)), units);
-    ESP_LOGI(TAG, "average server throughput: %.2lf %cbps", average_bandwidth_from_report(&(iperf_data.server_report)), units);
+    ESP_LOGI(TAG, "average client throughput: %.2lf %s", average_bandwidth_from_report(&(iperf_data.client_report)), unit_str);
+    ESP_LOGI(TAG, "average server throughput: %.2lf %s", average_bandwidth_from_report(&(iperf_data.server_report)), unit_str);
     TEST_ASSERT_GREATER_THAN_FLOAT(0.1, average_bandwidth_from_report(&(iperf_data.client_report)));
     TEST_ASSERT_GREATER_THAN_FLOAT(0.1, average_bandwidth_from_report(&(iperf_data.server_report)));
     TEST_ASSERT_FLOAT_WITHIN(0.5, average_bandwidth_from_report(&(iperf_data.client_report)), average_bandwidth_from_report(&(iperf_data.server_report)));
@@ -212,8 +239,8 @@ static void udp_basic_test(esp_ip_addr_t esp_addr_any, esp_ip_addr_t esp_addr_lo
     ESP_LOGI(TAG, "bits: 0x%lx", bits);
     TEST_ASSERT_BITS_HIGH(server_all_states_bits | client_all_states_bits, bits);
 
-    ESP_LOGI(TAG, "average client throughput: %.2lf %cbps", average_bandwidth_from_report(&(iperf_data.client_report)), units);
-    ESP_LOGI(TAG, "average server throughput: %.2lf %cbps", average_bandwidth_from_report(&(iperf_data.server_report)), units);
+    ESP_LOGI(TAG, "average client throughput: %.2lf %s", average_bandwidth_from_report(&(iperf_data.client_report)), unit_str);
+    ESP_LOGI(TAG, "average server throughput: %.2lf %s", average_bandwidth_from_report(&(iperf_data.server_report)), unit_str);
     TEST_ASSERT_GREATER_THAN_FLOAT(0.1, average_bandwidth_from_report(&(iperf_data.client_report)));
     TEST_ASSERT_GREATER_THAN_FLOAT(0.1, average_bandwidth_from_report(&(iperf_data.server_report)));
     TEST_ASSERT_FLOAT_WITHIN(0.5, average_bandwidth_from_report(&(iperf_data.client_report)), average_bandwidth_from_report(&(iperf_data.server_report)));
@@ -242,8 +269,8 @@ static void udp_basic_test(esp_ip_addr_t esp_addr_any, esp_ip_addr_t esp_addr_lo
     // previously timeouted, hence bits need to be cleared
     xEventGroupClearBits(iperf_event_group, server_all_states_bits | client_all_states_bits);
 
-    ESP_LOGI(TAG, "average client throughput: %.2lf %cbps", average_bandwidth_from_report(&(iperf_data.client_report)), units);
-    ESP_LOGI(TAG, "average server throughput: %.2lf %cbps", average_bandwidth_from_report(&(iperf_data.server_report)), units);
+    ESP_LOGI(TAG, "average client throughput: %.2lf %s", average_bandwidth_from_report(&(iperf_data.client_report)), unit_str);
+    ESP_LOGI(TAG, "average server throughput: %.2lf %s", average_bandwidth_from_report(&(iperf_data.server_report)), unit_str);
     TEST_ASSERT_EQUAL_FLOAT(0, average_bandwidth_from_report(&(iperf_data.server_report)));
     TEST_ASSERT_GREATER_OR_EQUAL_FLOAT(average_bw_prev * UDP_CLIENT_BW_FACTOR_ICMP, average_bandwidth_from_report(&(iperf_data.client_report))); // performance is expected to be less due to the ICMP "Port Unreachable" is sent
 
@@ -269,8 +296,8 @@ static void udp_basic_test(esp_ip_addr_t esp_addr_any, esp_ip_addr_t esp_addr_lo
     ESP_LOGI(TAG, "bits: 0x%lx", bits);
     TEST_ASSERT_BITS_HIGH(server_all_states_bits | client_all_states_bits, bits);
 
-    ESP_LOGI(TAG, "average client throughput: %.2lf %cbps", average_bandwidth_from_report(&(iperf_data.client_report)), units);
-    ESP_LOGI(TAG, "average server throughput: %.2lf %cbps", average_bandwidth_from_report(&(iperf_data.server_report)), units);
+    ESP_LOGI(TAG, "average client throughput: %.2lf %s", average_bandwidth_from_report(&(iperf_data.client_report)), unit_str);
+    ESP_LOGI(TAG, "average server throughput: %.2lf %s", average_bandwidth_from_report(&(iperf_data.server_report)), unit_str);
     // performance may be also affected by the ICMP "Port Unreachable" since server is started later
     TEST_ASSERT_GREATER_OR_EQUAL_FLOAT(average_bw_prev * UDP_CLIENT_BW_FACTOR_ICMP, average_bandwidth_from_report(&(iperf_data.client_report)));
     TEST_ASSERT_GREATER_THAN_FLOAT(5, average_bandwidth_from_report(&(iperf_data.server_report))); // server is started later, hence avg. bw is expected to be low
@@ -320,9 +347,10 @@ static void tcp_basic_test(esp_ip_addr_t esp_addr_any, esp_ip_addr_t esp_addr_lo
     ESP_LOGI(TAG, "bits: 0x%lx", bits);
     TEST_ASSERT_BITS_HIGH(server_all_states_bits | client_all_states_bits, bits);
 
-    char units = iperf_data.client_report.output_format == MBITS_PER_SEC ? 'M' : 'K';
-    ESP_LOGI(TAG, "average client throughput: %.2lf %cbps\n", average_bandwidth_from_report(&(iperf_data.client_report)), units);
-    ESP_LOGI(TAG, "average server throughput: %.2lf %cbps", average_bandwidth_from_report(&(iperf_data.server_report)), units);
+    const char *unit_str = get_unit_string_from_format(iperf_data.client_report.output_format);
+
+    ESP_LOGI(TAG, "average client throughput: %.2lf %s\n", average_bandwidth_from_report(&(iperf_data.client_report)), unit_str);
+    ESP_LOGI(TAG, "average server throughput: %.2lf %s", average_bandwidth_from_report(&(iperf_data.server_report)), unit_str);
     TEST_ASSERT_GREATER_THAN_FLOAT(0.1, average_bandwidth_from_report(&(iperf_data.client_report)));
     TEST_ASSERT_GREATER_THAN_FLOAT(0.1, average_bandwidth_from_report(&(iperf_data.server_report)));
     TEST_ASSERT_FLOAT_WITHIN(0.5, average_bandwidth_from_report(&(iperf_data.client_report)), average_bandwidth_from_report(&(iperf_data.server_report)));
@@ -347,8 +375,8 @@ static void tcp_basic_test(esp_ip_addr_t esp_addr_any, esp_ip_addr_t esp_addr_lo
     ESP_LOGI(TAG, "bits: 0x%lx", bits);
     TEST_ASSERT_BITS_HIGH(server_all_states_bits | client_all_states_bits, bits);
 
-    ESP_LOGI(TAG, "average client throughput: %.2lf %cbps", average_bandwidth_from_report(&(iperf_data.client_report)), units);
-    ESP_LOGI(TAG, "average server throughput: %.2lf %cbps", average_bandwidth_from_report(&(iperf_data.server_report)), units);
+    ESP_LOGI(TAG, "average client throughput: %.2lf %s", average_bandwidth_from_report(&(iperf_data.client_report)), unit_str);
+    ESP_LOGI(TAG, "average server throughput: %.2lf %s", average_bandwidth_from_report(&(iperf_data.server_report)), unit_str);
     TEST_ASSERT_GREATER_THAN_FLOAT(0.1, average_bandwidth_from_report(&(iperf_data.client_report)));
     TEST_ASSERT_GREATER_THAN_FLOAT(0.1, average_bandwidth_from_report(&(iperf_data.server_report)));
     TEST_ASSERT_FLOAT_WITHIN(0.5, average_bandwidth_from_report(&(iperf_data.client_report)), average_bandwidth_from_report(&(iperf_data.server_report)));
@@ -374,8 +402,8 @@ static void tcp_basic_test(esp_ip_addr_t esp_addr_any, esp_ip_addr_t esp_addr_lo
     ESP_LOGI(TAG, "bits: 0x%lx", bits);
     TEST_ASSERT_BITS_HIGH(server_all_states_bits | client_all_states_bits, bits);
 
-    ESP_LOGI(TAG, "average client throughput: %.2lf %cbps", average_bandwidth_from_report(&(iperf_data.client_report)), units);
-    ESP_LOGI(TAG, "average server throughput: %.2lf %cbps", average_bandwidth_from_report(&(iperf_data.server_report)), units);
+    ESP_LOGI(TAG, "average client throughput: %.2lf %s", average_bandwidth_from_report(&(iperf_data.client_report)), unit_str);
+    ESP_LOGI(TAG, "average server throughput: %.2lf %s", average_bandwidth_from_report(&(iperf_data.server_report)), unit_str);
     TEST_ASSERT_GREATER_THAN_FLOAT(0.1, average_bandwidth_from_report(&(iperf_data.client_report)));
     TEST_ASSERT_GREATER_THAN_FLOAT(0.1, average_bandwidth_from_report(&(iperf_data.server_report)));
     TEST_ASSERT_FLOAT_WITHIN(0.5, average_bandwidth_from_report(&(iperf_data.client_report)), average_bandwidth_from_report(&(iperf_data.server_report)));
@@ -401,8 +429,8 @@ static void tcp_basic_test(esp_ip_addr_t esp_addr_any, esp_ip_addr_t esp_addr_lo
     // expect exactly only IPERF_SERVER_CLOSE_BIT | IPERF_CLIENT_CLOSE_BIT
     TEST_ASSERT_BITS(server_all_states_bits | client_all_states_bits, IPERF_SERVER_CLOSE_BIT | IPERF_CLIENT_CLOSE_BIT, bits);
 
-    ESP_LOGI(TAG, "average client throughput: %.2lf %cbps", average_bandwidth_from_report(&(iperf_data.client_report)), units);
-    ESP_LOGI(TAG, "average server throughput: %.2lf %cbps", average_bandwidth_from_report(&(iperf_data.server_report)), units);
+    ESP_LOGI(TAG, "average client throughput: %.2lf %s", average_bandwidth_from_report(&(iperf_data.client_report)), unit_str);
+    ESP_LOGI(TAG, "average server throughput: %.2lf %s", average_bandwidth_from_report(&(iperf_data.server_report)), unit_str);
     TEST_ASSERT_EQUAL_FLOAT(0, average_bandwidth_from_report(&(iperf_data.server_report)));
     TEST_ASSERT_EQUAL_FLOAT(0, average_bandwidth_from_report(&(iperf_data.client_report)));
 
@@ -425,8 +453,8 @@ static void tcp_basic_test(esp_ip_addr_t esp_addr_any, esp_ip_addr_t esp_addr_lo
     ESP_LOGI(TAG, "bits: 0x%lx", bits);
     TEST_ASSERT_BITS_HIGH(IPERF_SERVER_CLOSE_BIT | IPERF_CLIENT_CLOSE_BIT, bits);
 
-    ESP_LOGI(TAG, "average client throughput: %.2lf %cbps", average_bandwidth_from_report(&(iperf_data.client_report)), units);
-    ESP_LOGI(TAG, "average server throughput: %.2lf %cbps", average_bandwidth_from_report(&(iperf_data.server_report)), units);
+    ESP_LOGI(TAG, "average client throughput: %.2lf %s", average_bandwidth_from_report(&(iperf_data.client_report)), unit_str);
+    ESP_LOGI(TAG, "average server throughput: %.2lf %s", average_bandwidth_from_report(&(iperf_data.server_report)), unit_str);
     TEST_ASSERT_EQUAL_FLOAT(0, average_bandwidth_from_report(&(iperf_data.client_report)));
     TEST_ASSERT_EQUAL_FLOAT(0, average_bandwidth_from_report(&(iperf_data.server_report)));
 

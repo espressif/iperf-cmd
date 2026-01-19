@@ -17,6 +17,8 @@ extern "C" {
  * @brief Iperf output report format
  */
  typedef enum {
+    MBYTES_PER_SEC,
+    KBYTES_PER_SEC,
     MBITS_PER_SEC,
     KBITS_PER_SEC,
     BITS_PER_SEC,
