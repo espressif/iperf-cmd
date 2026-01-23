@@ -1,5 +1,19 @@
 # Changelog
 
+## [v1.0.2](https://github.com/espressif/iperf-cmd/releases/tag/v1.0.2)
+
+### Features
+
+- format support Mbytes and Kbytes ([d739c2fe](https://github.com/espressif/iperf-cmd/commit/d739c2fe))
+
+### Bug Fixes
+
+- move iperf and esp_netif to public REQUIRES ([5461b6b6](https://github.com/espressif/iperf-cmd/commit/5461b6b6))
+
+### Updates
+
+- update dependencies [espressif/iperf](https://components.espressif.com/components/espressif/iperf) to v1.0.2
+
 ## [v1.0.1](https://github.com/espressif/iperf-cmd/releases/tag/v1.0.1)
 
 ### Bug Fixes
