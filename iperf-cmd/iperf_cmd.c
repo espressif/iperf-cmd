@@ -93,7 +93,7 @@ static int cmd_do_iperf(int argc, char **argv)
             cfg.destination_ip4 = esp_ip4addr_aton(iperf_args.ip->sval[0]);
         }
 #endif
-        /* -r tradeoff (alternating bidirectional), TCP only; compatible with iperf2 server */
+        /* -r tradeoff (alternating bidirectional), TCP and UDP; compatible with iperf2 server */
         if (iperf_args.tradeoff->count > 0) {
             cfg.flag |= IPERF_FLAG_TRADEOFF;
         }
@@ -108,10 +108,7 @@ static int cmd_do_iperf(int argc, char **argv)
         cfg.flag |= IPERF_FLAG_TCP;
     } else {
         cfg.flag |= IPERF_FLAG_UDP;
-        if (cfg.flag & IPERF_FLAG_TRADEOFF) {
-            cfg.flag &= ~IPERF_FLAG_TRADEOFF;
-            ESP_LOGW(APP_TAG, "tradeoff (-r) is TCP only, ignored for UDP");
-        }
+        /* tradeoff (-r) supported for both TCP and UDP; compatible with iperf2 server */
     }
 
     if (iperf_args.length->count == 0) {

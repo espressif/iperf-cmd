@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <inttypes.h>
 #include <sys/param.h>
@@ -36,7 +37,9 @@
 
 /* iperf2-compatible header for tradeoff (alternating bidirectional) */
 #define IPERF2_HEADER_VERSION1  0x80000000
+#define IPERF2_HEADER_EXTEND    0x40000000  /* extended header present; server uses lRate/uRate for phase2 send rate */
 #define IPERF2_RUN_NOW          0x00000001  /* not set = tradeoff */
+#define IPERF2_HEADER_BWSET     0x0100      /* in client_hdrext.upperflags: bandwidth (lRate/uRate) is set */
 
 #pragma pack(push, 1)
 typedef struct {
@@ -51,6 +54,51 @@ typedef struct {
 
 #define IPERF2_CLIENT_HDR_V1_SIZE  (sizeof(iperf2_client_hdr_v1_t))
 
+/* iperf2 client_hdrext: tells server phase2 (reverse) send rate in BITS/sec when HEADER_BWSET */
+#pragma pack(push, 1)
+typedef struct {
+    int32_t type;
+    int32_t length;
+    int16_t upperflags;
+    int16_t lowerflags;
+    uint32_t version_u;
+    uint32_t version_l;
+    uint16_t reserved;
+    uint16_t tos;
+    uint32_t lRate;   /* rate low 32 bits (bits/sec) */
+    uint32_t uRate;   /* rate high 32 bits << 8 (iperf2: mAppRate = lRate | (uRate>>8)<<32) */
+    uint32_t TCPWritePrefetch;
+    uint32_t barrier_usecs;
+} iperf2_client_hdrext_t;
+#pragma pack(pop)
+#define IPERF2_CLIENT_HDREXT_SIZE  (sizeof(iperf2_client_hdrext_t))
+#define IPERF2_UDP_TRADEOFF_HDR_EXT_SIZE  (IPERF2_UDP_TRADEOFF_HDR_SIZE + IPERF2_CLIENT_HDREXT_SIZE)
+
+#pragma pack(push, 1)
+typedef struct {
+    uint32_t id;
+    uint32_t tv_sec;
+    uint32_t tv_usec;
+    uint32_t id2;
+} iperf2_udp_datagram_t;
+#pragma pack(pop)
+#define IPERF2_UDP_DATAGRAM_SIZE       (sizeof(iperf2_udp_datagram_t))
+#define IPERF2_UDP_TRADEOFF_HDR_SIZE   (IPERF2_UDP_DATAGRAM_SIZE + IPERF2_CLIENT_HDR_V1_SIZE)
+
+#pragma pack(push, 1)
+typedef struct {
+    int32_t flags;
+    int32_t total_len1;
+    int32_t total_len2;
+    int32_t stop_sec;
+    int32_t stop_usec;
+} iperf2_server_hdr_t;
+#pragma pack(pop)
+#define IPERF2_UDP_ACKFIN_SIZE  (IPERF2_UDP_DATAGRAM_SIZE + sizeof(iperf2_server_hdr_t))
+
+/* Extra seconds for phase2 (receiver) in tradeoff so server has slop to finish; match iperf2 SLOPSECS */
+#define IPERF_TRADEOFF_PHASE2_SLOP_SEC  1
+
 typedef struct {
     iperf_cfg_t cfg;
     bool finish;
@@ -58,6 +106,10 @@ typedef struct {
     uint32_t buffer_len;
     uint8_t *buffer;
     uint32_t sockfd;
+    uint32_t report_end_time_sec;  /* 0 = use cfg.time; else report task ends at this (e.g. phase2 with slop) */
+    struct sockaddr_storage phase2_peer;  /* UDP tradeoff phase2: sender addr for replying Ack/FIN */
+    bool phase2_peer_valid;
+    bool phase2_ack_requested;  /* report task sets when nominal time reached, recv loop sends ack */
 } iperf_ctrl_t;
 
 bool g_iperf_is_running = false;
@@ -89,6 +141,11 @@ inline static bool iperf_is_tcp_client_tradeoff(void)
     return iperf_is_tcp_client() && (s_iperf_ctrl.cfg.flag & IPERF_FLAG_TRADEOFF);
 }
 
+inline static bool iperf_is_udp_client_tradeoff(void)
+{
+    return iperf_is_udp_client() && (s_iperf_ctrl.cfg.flag & IPERF_FLAG_TRADEOFF);
+}
+
 inline static int iperf_get_socket_error_code(int sockfd)
 {
     return errno;
@@ -107,7 +164,7 @@ static int iperf_show_socket_error_reason(const char *str, int sockfd)
 static void iperf_report_task(void *arg)
 {
     uint32_t interval = s_iperf_ctrl.cfg.interval;
-    uint32_t time = s_iperf_ctrl.cfg.time;
+    uint32_t time = (s_iperf_ctrl.report_end_time_sec != 0) ? s_iperf_ctrl.report_end_time_sec : s_iperf_ctrl.cfg.time;
     TickType_t delay_interval = (interval * 1000) / portTICK_PERIOD_MS;
     uint32_t cur = 0;
     double average = 0;
@@ -135,6 +192,10 @@ static void iperf_report_task(void *arg)
         average = ((average * (k - 1) / k) + (actual_bandwidth / k));
         k++;
         s_iperf_ctrl.actual_len = 0;
+        /* UDP tradeoff phase2: request ack send when nominal time reached so iperf2 client gets it in time */
+        if (s_iperf_ctrl.report_end_time_sec != 0 && cur >= s_iperf_ctrl.cfg.time) {
+            s_iperf_ctrl.phase2_ack_requested = true;
+        }
         if (cur >= time) {
             printf("%2d.0-%2d.0 sec  %.2f %cbits/sec\n", 0, time, average, format_ch);
             break;
@@ -159,6 +220,37 @@ static esp_err_t iperf_start_report(void)
     return ESP_OK;
 }
 
+/* Send UDP Ack/FIN to phase2_peer (used from recv loop so iperf2 client gets it within its ~2s wait) */
+static void iperf_udp_phase2_send_ack(int sock)
+{
+    if (!s_iperf_ctrl.phase2_peer_valid) {
+        return;
+    }
+    uint8_t ack_buf[IPERF2_UDP_ACKFIN_SIZE];
+    iperf2_udp_datagram_t *udp_dgram = (iperf2_udp_datagram_t *)ack_buf;
+    iperf2_server_hdr_t *hdr = (iperf2_server_hdr_t *)(ack_buf + IPERF2_UDP_DATAGRAM_SIZE);
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    memset(ack_buf, 0, sizeof(ack_buf));
+    udp_dgram->id = 0;
+    udp_dgram->tv_sec = htonl((uint32_t)tv.tv_sec);
+    udp_dgram->tv_usec = htonl((uint32_t)tv.tv_usec);
+    udp_dgram->id2 = 0;
+    hdr->flags = htonl(IPERF2_HEADER_VERSION1);
+    hdr->total_len1 = 0;
+    hdr->total_len2 = htonl((int32_t)(s_iperf_ctrl.actual_len & 0xFFFFFFFF));
+    hdr->stop_sec = htonl((int32_t)tv.tv_sec);
+    hdr->stop_usec = htonl((int32_t)tv.tv_usec);
+    socklen_t peer_len = (s_iperf_ctrl.cfg.type == IPERF_IP_TYPE_IPV6) ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in);
+    for (int i = 0; i < 3; i++) {
+        sendto(sock, ack_buf, IPERF2_UDP_ACKFIN_SIZE, 0,
+               (struct sockaddr *)&s_iperf_ctrl.phase2_peer, peer_len);
+        vTaskDelay(pdMS_TO_TICKS(20));
+    }
+    s_iperf_ctrl.phase2_ack_requested = false;
+    s_iperf_ctrl.phase2_peer_valid = false;  /* already sent, skip send after socket_recv returns */
+}
+
 IRAM_ATTR static void socket_recv(int recv_socket, struct sockaddr_storage listen_addr, uint8_t type)
 {
     bool iperf_recv_start = true;
@@ -178,6 +270,11 @@ IRAM_ATTR static void socket_recv(int recv_socket, struct sockaddr_storage liste
     buffer = s_iperf_ctrl.buffer;
     want_recv = s_iperf_ctrl.buffer_len;
     while (!s_iperf_ctrl.finish) {
+        /* UDP tradeoff phase2: send ack as soon as report task requested (nominal time reached) so iperf2 client gets it within ~2s wait */
+        if ((type == IPERF_TRANS_TYPE_UDP) && (s_iperf_ctrl.cfg.flag & IPERF_FLAG_TRADEOFF) &&
+            s_iperf_ctrl.phase2_ack_requested && s_iperf_ctrl.phase2_peer_valid) {
+            iperf_udp_phase2_send_ack(recv_socket);
+        }
         /* Use recv() for TCP (connected socket); recvfrom() for UDP. recvfrom() on TCP can cause issues on some stacks (e.g. LWIP). */
         if (type == IPERF_TRANS_TYPE_TCP) {
             actual_recv = recv(recv_socket, buffer, want_recv, 0);
@@ -185,6 +282,12 @@ IRAM_ATTR static void socket_recv(int recv_socket, struct sockaddr_storage liste
             actual_recv = recvfrom(recv_socket, buffer, want_recv, 0, (struct sockaddr *)&listen_addr, &socklen);
         }
         if (actual_recv < 0) {
+            /* UDP tradeoff phase2: recv timeout (EAGAIN) is normal; keep looping until report task sets finish (report_end_time_sec) */
+            if ((type == IPERF_TRANS_TYPE_UDP) && (s_iperf_ctrl.cfg.flag & IPERF_FLAG_TRADEOFF) &&
+                (errno == EAGAIN || errno == EWOULDBLOCK)) {
+                vTaskDelay(pdMS_TO_TICKS(50));  /* avoid busy loop; next iteration will check finish */
+                continue;
+            }
             iperf_show_socket_error_reason(error_log, recv_socket);
             s_iperf_ctrl.finish = true;
             break;
@@ -197,16 +300,21 @@ IRAM_ATTR static void socket_recv(int recv_socket, struct sockaddr_storage liste
                 iperf_start_report();
                 iperf_recv_start = false;
             }
+            /* UDP tradeoff phase2: save sender so we can send Ack/FIN back and avoid server "did not receive ack" */
+            if ((type == IPERF_TRANS_TYPE_UDP) && (s_iperf_ctrl.cfg.flag & IPERF_FLAG_TRADEOFF) && !s_iperf_ctrl.phase2_peer_valid) {
+                memcpy(&s_iperf_ctrl.phase2_peer, &listen_addr, sizeof(s_iperf_ctrl.phase2_peer));
+                s_iperf_ctrl.phase2_peer_valid = true;
+            }
             s_iperf_ctrl.actual_len += actual_recv;
         }
     }
 }
 
-IRAM_ATTR static void socket_send(int send_socket, struct sockaddr_storage dest_addr, uint8_t type, int bw_lim)
+IRAM_ATTR static void socket_send(int send_socket, struct sockaddr_storage dest_addr, uint8_t type, int bw_lim, int udp_initial_pkt_id)
 {
     uint8_t *buffer;
     uint32_t *pkt_id_p;
-    uint32_t pkt_cnt = 0;
+    uint32_t pkt_cnt = (type == IPERF_TRANS_TYPE_UDP && udp_initial_pkt_id >= 0) ? (uint32_t)udp_initial_pkt_id : 0;
     int actual_send = 0;
     int want_send = 0;
     int period_us = -1;
@@ -439,7 +547,7 @@ static esp_err_t iperf_run_tcp_client(void)
     if (iperf_hook_func) {
         iperf_hook_func(IPERF_TCP_CLIENT, IPERF_STARTED);
     }
-    socket_send(client_socket, dest_addr, IPERF_TRANS_TYPE_TCP, s_iperf_ctrl.cfg.bw_lim);
+    socket_send(client_socket, dest_addr, IPERF_TRANS_TYPE_TCP, s_iperf_ctrl.cfg.bw_lim, -1);
 
 exit:
     if (client_socket != -1) {
@@ -582,7 +690,7 @@ static esp_err_t iperf_run_tcp_client_tradeoff(void)
         iperf_hook_func(IPERF_TCP_CLIENT, IPERF_STARTED);
     }
     /* 4. Phase 1: client -> server */
-    socket_send(client_socket, dest_addr, IPERF_TRANS_TYPE_TCP, s_iperf_ctrl.cfg.bw_lim);
+    socket_send(client_socket, dest_addr, IPERF_TRANS_TYPE_TCP, s_iperf_ctrl.cfg.bw_lim, -1);
 
     if (client_socket != -1) {
         shutdown(client_socket, 0);
@@ -768,7 +876,7 @@ static esp_err_t iperf_run_udp_client(void)
     if (iperf_hook_func) {
         iperf_hook_func(IPERF_UDP_CLIENT, IPERF_STARTED);
     }
-    socket_send(client_socket, dest_addr, IPERF_TRANS_TYPE_UDP, s_iperf_ctrl.cfg.bw_lim);
+    socket_send(client_socket, dest_addr, IPERF_TRANS_TYPE_UDP, s_iperf_ctrl.cfg.bw_lim, -1);
 
 exit:
     if (client_socket != -1) {
@@ -783,9 +891,208 @@ exit:
     return ret;
 }
 
+/* UDP tradeoff: one socket bound to listen_port; send header (id=1) + data (id 2,3,...) + negative id to end; then recv phase2 */
+static esp_err_t iperf_run_udp_client_tradeoff(void)
+{
+    int client_socket = -1;
+    int opt = 1;
+    int err = 0;
+    esp_err_t ret = ESP_OK;
+    struct timeval timeout = { 0 };
+    struct sockaddr_storage dest_addr = { 0 };
+    uint8_t *hdr_buf = NULL;
+#if IPERF_IPV4_ENABLED
+    struct sockaddr_in dest_addr4 = { 0 };
+    struct sockaddr_in listen_addr4 = { 0 };
+#endif
+#if IPERF_IPV6_ENABLED
+    struct sockaddr_in6 dest_addr6 = { 0 };
+    struct sockaddr_in6 listen_addr6 = { 0 };
+#endif
+    uint16_t listen_port = s_iperf_ctrl.cfg.listen_port;
+
+    hdr_buf = (uint8_t *)malloc(IPERF2_UDP_TRADEOFF_HDR_EXT_SIZE);
+    if (!hdr_buf) {
+        ESP_LOGE(TAG, "udp tradeoff: no memory for header");
+        return ESP_FAIL;
+    }
+
+    /* 1. Create UDP socket and bind to listen_port (0 = ephemeral) so server's reverse client can send to us */
+    if (s_iperf_ctrl.cfg.type == IPERF_IP_TYPE_IPV4) {
+#if IPERF_IPV4_ENABLED
+        listen_addr4.sin_family = AF_INET;
+        listen_addr4.sin_port = htons(listen_port);
+        listen_addr4.sin_addr.s_addr = INADDR_ANY;
+
+        client_socket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+        ESP_GOTO_ON_FALSE((client_socket >= 0), ESP_FAIL, exit, TAG, "udp tradeoff socket create failed: errno %d", errno);
+        setsockopt(client_socket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+        err = bind(client_socket, (struct sockaddr *)&listen_addr4, sizeof(listen_addr4));
+        ESP_GOTO_ON_FALSE((err == 0), ESP_FAIL, exit, TAG, "udp tradeoff bind failed: errno %d", errno);
+        socklen_t len = sizeof(listen_addr4);
+        err = getsockname(client_socket, (struct sockaddr *)&listen_addr4, &len);
+        ESP_GOTO_ON_FALSE((err == 0), ESP_FAIL, exit, TAG, "udp tradeoff getsockname failed");
+        listen_port = ntohs(listen_addr4.sin_port);
+        ESP_LOGI(TAG, "UDP tradeoff bound to port %" PRIu16, listen_port);
+
+        dest_addr4.sin_family = AF_INET;
+        dest_addr4.sin_port = htons(s_iperf_ctrl.cfg.dport);
+        dest_addr4.sin_addr.s_addr = s_iperf_ctrl.cfg.destination_ip4;
+        memcpy(&dest_addr, &dest_addr4, sizeof(dest_addr4));
+#else
+        ESP_GOTO_ON_FALSE(false, ESP_ERR_INVALID_ARG, exit, TAG, "IPv4 not enabled");
+#endif
+    } else {
+#if IPERF_IPV6_ENABLED
+        listen_addr6.sin6_family = AF_INET6;
+        listen_addr6.sin6_port = htons(listen_port);
+        inet6_aton("::", &listen_addr6.sin6_addr);
+
+        client_socket = socket(AF_INET6, SOCK_DGRAM, IPPROTO_IPV6);
+        ESP_GOTO_ON_FALSE((client_socket >= 0), ESP_FAIL, exit, TAG, "udp tradeoff socket create failed: errno %d", errno);
+        setsockopt(client_socket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+        err = bind(client_socket, (struct sockaddr *)&listen_addr6, sizeof(listen_addr6));
+        ESP_GOTO_ON_FALSE((err == 0), ESP_FAIL, exit, TAG, "udp tradeoff bind failed: errno %d", errno);
+        socklen_t len = sizeof(listen_addr6);
+        err = getsockname(client_socket, (struct sockaddr *)&listen_addr6, &len);
+        ESP_GOTO_ON_FALSE((err == 0), ESP_FAIL, exit, TAG, "udp tradeoff getsockname failed");
+        listen_port = ntohs(listen_addr6.sin6_port);
+        ESP_LOGI(TAG, "UDP tradeoff bound to port %" PRIu16, listen_port);
+
+        inet6_aton(s_iperf_ctrl.cfg.destination_ip6, &dest_addr6.sin6_addr);
+        dest_addr6.sin6_family = AF_INET6;
+        dest_addr6.sin6_port = htons(s_iperf_ctrl.cfg.dport);
+        memcpy(&dest_addr, &dest_addr6, sizeof(dest_addr6));
+#else
+        ESP_GOTO_ON_FALSE(false, ESP_ERR_INVALID_ARG, exit, TAG, "IPv6 not enabled");
+#endif
+    }
+
+    /* 2. Build and send header: UDP_datagram (id=1) + client_hdr_v1 [+ client_hdrext if -b set].
+     * When bw_lim > 0, set HEADER_EXTEND and lRate/uRate so iperf2 server uses this rate for phase2 (reverse) send. */
+    {
+        iperf2_udp_datagram_t *udp_dgram = (iperf2_udp_datagram_t *)hdr_buf;
+        iperf2_client_hdr_v1_t *hdr = (iperf2_client_hdr_v1_t *)(hdr_buf + IPERF2_UDP_DATAGRAM_SIZE);
+        struct timeval tv;
+        uint32_t hdr_flags = IPERF2_HEADER_VERSION1;  /* no RUN_NOW => tradeoff */
+        size_t send_len = IPERF2_UDP_TRADEOFF_HDR_SIZE;
+
+        gettimeofday(&tv, NULL);
+        memset(hdr_buf, 0, IPERF2_UDP_TRADEOFF_HDR_EXT_SIZE);
+        udp_dgram->id = htonl(1);
+        udp_dgram->tv_sec = htonl((uint32_t)tv.tv_sec);
+        udp_dgram->tv_usec = htonl((uint32_t)tv.tv_usec);
+        udp_dgram->id2 = htonl(1);
+        hdr->numThreads = htonl(1);
+        hdr->mPort = htonl((int32_t)listen_port);
+        hdr->mBufLen = htonl((int32_t)s_iperf_ctrl.buffer_len);
+        hdr->mWinBand = 0;
+        hdr->mAmount = htonl(-(int32_t)(s_iperf_ctrl.cfg.time * 100));  /* 10ms units */
+
+        if (s_iperf_ctrl.cfg.bw_lim > 0) {
+            /* Tell iperf2 server phase2 send rate. iperf2 lRate/uRate and mAppRate are in BITS/sec (see Client.cpp delay_target, Server.cpp mAppRate/8). */
+            hdr_flags |= IPERF2_HEADER_EXTEND;
+            uint64_t rate_bits_per_sec = (uint64_t)s_iperf_ctrl.cfg.bw_lim * 1000000U;  /* Mbits/s -> bits/s */
+            iperf2_client_hdrext_t *ext = (iperf2_client_hdrext_t *)(hdr_buf + IPERF2_UDP_TRADEOFF_HDR_SIZE);
+            ext->type = 0;
+            ext->length = htonl((int32_t)IPERF2_CLIENT_HDREXT_SIZE);
+            ext->upperflags = htons((int16_t)IPERF2_HEADER_BWSET);
+            ext->lowerflags = 0;
+            ext->lRate = htonl((uint32_t)(rate_bits_per_sec & 0xFFFFFFFFU));
+            ext->uRate = htonl((uint32_t)((rate_bits_per_sec >> 32) << 8));
+            send_len = IPERF2_UDP_TRADEOFF_HDR_EXT_SIZE;
+            ESP_LOGI(TAG, "UDP tradeoff: phase2 server rate %" PRId32 " Mbits/s", (int32_t)s_iperf_ctrl.cfg.bw_lim);
+        }
+        hdr->flags = htonl((int32_t)hdr_flags);
+
+        socklen_t dest_len = (s_iperf_ctrl.cfg.type == IPERF_IP_TYPE_IPV6) ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in);
+        sendto(client_socket, hdr_buf, send_len, 0, (struct sockaddr *)&dest_addr, dest_len);
+        vTaskDelay(pdMS_TO_TICKS(50));  /* reduce reordering: header before data */
+    }
+
+    if (iperf_hook_func) {
+        iperf_hook_func(IPERF_UDP_CLIENT, IPERF_STARTED);
+    }
+    /* 3. Phase 1: send data (packet id from 2; id=1 was header) */
+    socket_send(client_socket, dest_addr, IPERF_TRANS_TYPE_UDP, s_iperf_ctrl.cfg.bw_lim, 2);
+
+    /* 4. Send negative-id packets to signal end of phase1 (iperf2 expects this) */
+    uint32_t neg_id = 0xFFFFFFFF;
+    memcpy(s_iperf_ctrl.buffer, &neg_id, sizeof(neg_id));
+    socklen_t dest_len = (s_iperf_ctrl.cfg.type == IPERF_IP_TYPE_IPV6) ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in);
+    for (int i = 0; i < 5; i++) {
+        sendto(client_socket, s_iperf_ctrl.buffer, s_iperf_ctrl.buffer_len, 0, (struct sockaddr *)&dest_addr, dest_len);
+        vTaskDelay(pdMS_TO_TICKS(20));
+    }
+
+    if (iperf_hook_func) {
+        iperf_hook_func(IPERF_UDP_CLIENT, IPERF_STOPPED);
+    }
+    ESP_LOGI(TAG, "UDP client phase1 done, waiting for reverse traffic...");
+
+    /* 5. Phase 2: recv on same socket (server's reverse client sends to our port).
+     * Use report_end_time_sec = time + slop so we stay open a bit longer (match iperf2 SLOPSECS).
+     * Use short recv timeout (200ms) so we wake up often and send ack when report task sets phase2_ack_requested (at nominal time). */
+    s_iperf_ctrl.report_end_time_sec = s_iperf_ctrl.cfg.time + IPERF_TRADEOFF_PHASE2_SLOP_SEC;
+    timeout.tv_sec = 0;
+    timeout.tv_usec = 200000;  /* 200ms so recv loop wakes to check finish and send ack */
+    setsockopt(client_socket, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+    s_iperf_ctrl.actual_len = 0;
+    s_iperf_ctrl.finish = false;
+    if (iperf_hook_func) {
+        iperf_hook_func(IPERF_UDP_SERVER, IPERF_STARTED);
+    }
+    {
+        struct sockaddr_storage peer_addr = { 0 };
+        socket_recv(client_socket, peer_addr, IPERF_TRANS_TYPE_UDP);
+    }
+    if (iperf_hook_func) {
+        iperf_hook_func(IPERF_UDP_SERVER, IPERF_STOPPED);
+    }
+    s_iperf_ctrl.report_end_time_sec = 0;
+
+    /* Send UDP Ack/FIN to iperf2 reverse client so it can exit (stops "read failed" and "did not receive ack") */
+    if (s_iperf_ctrl.phase2_peer_valid) {
+        uint8_t ack_buf[IPERF2_UDP_ACKFIN_SIZE];
+        iperf2_udp_datagram_t *udp_dgram = (iperf2_udp_datagram_t *)ack_buf;
+        iperf2_server_hdr_t *hdr = (iperf2_server_hdr_t *)(ack_buf + IPERF2_UDP_DATAGRAM_SIZE);
+        struct timeval tv;
+        gettimeofday(&tv, NULL);
+        memset(ack_buf, 0, sizeof(ack_buf));
+        udp_dgram->id = 0;
+        udp_dgram->tv_sec = htonl((uint32_t)tv.tv_sec);
+        udp_dgram->tv_usec = htonl((uint32_t)tv.tv_usec);
+        udp_dgram->id2 = 0;
+        hdr->flags = htonl(IPERF2_HEADER_VERSION1);
+        hdr->total_len1 = 0;
+        hdr->total_len2 = htonl((int32_t)(s_iperf_ctrl.actual_len & 0xFFFFFFFF));
+        hdr->stop_sec = htonl((int32_t)tv.tv_sec);
+        hdr->stop_usec = htonl((int32_t)tv.tv_usec);
+        socklen_t peer_len = (s_iperf_ctrl.cfg.type == IPERF_IP_TYPE_IPV6) ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in);
+        for (int i = 0; i < 3; i++) {
+            sendto(client_socket, ack_buf, IPERF2_UDP_ACKFIN_SIZE, 0,
+                   (struct sockaddr *)&s_iperf_ctrl.phase2_peer, peer_len);
+            vTaskDelay(pdMS_TO_TICKS(30));
+        }
+        s_iperf_ctrl.phase2_peer_valid = false;
+    }
+
+exit:
+    if (hdr_buf) {
+        free(hdr_buf);
+    }
+    if (client_socket != -1) {
+        close(client_socket);
+    }
+    s_iperf_ctrl.finish = true;
+    return ret;
+}
+
 static void iperf_task_traffic(void *arg)
 {
-    if (iperf_is_udp_client()) {
+    if (iperf_is_udp_client_tradeoff()) {
+        iperf_run_udp_client_tradeoff();
+    } else if (iperf_is_udp_client()) {
         iperf_run_udp_client();
     } else if (iperf_is_udp_server()) {
         iperf_run_udp_server();
@@ -808,7 +1115,7 @@ static void iperf_task_traffic(void *arg)
 
 static uint32_t iperf_get_buffer_len(void)
 {
-    if (iperf_is_udp_client()) {
+    if (iperf_is_udp_client() || iperf_is_udp_client_tradeoff()) {
 #if IPERF_IPV6_ENABLED
         if (s_iperf_ctrl.cfg.len_send_buf) {
             return s_iperf_ctrl.cfg.len_send_buf;
