@@ -5,8 +5,10 @@
  */
 #include <stdio.h>
 #include <string.h>
+#include <inttypes.h>
 #include <sys/param.h>
 #include <sys/socket.h>
+#include <arpa/inet.h>
 #include "sdkconfig.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -31,6 +33,23 @@
 #endif
 
 #define TAG "iperf"
+
+/* iperf2-compatible header for tradeoff (alternating bidirectional) */
+#define IPERF2_HEADER_VERSION1  0x80000000
+#define IPERF2_RUN_NOW          0x00000001  /* not set = tradeoff */
+
+#pragma pack(push, 1)
+typedef struct {
+    int32_t flags;
+    int32_t numThreads;
+    int32_t mPort;
+    int32_t mBufLen;
+    int32_t mWinBand;
+    int32_t mAmount;
+} iperf2_client_hdr_v1_t;
+#pragma pack(pop)
+
+#define IPERF2_CLIENT_HDR_V1_SIZE  (sizeof(iperf2_client_hdr_v1_t))
 
 typedef struct {
     iperf_cfg_t cfg;
@@ -63,6 +82,11 @@ inline static bool iperf_is_tcp_client(void)
 inline static bool iperf_is_tcp_server(void)
 {
     return ((s_iperf_ctrl.cfg.flag & IPERF_FLAG_SERVER) && (s_iperf_ctrl.cfg.flag & IPERF_FLAG_TCP));
+}
+
+inline static bool iperf_is_tcp_client_tradeoff(void)
+{
+    return iperf_is_tcp_client() && (s_iperf_ctrl.cfg.flag & IPERF_FLAG_TRADEOFF);
 }
 
 inline static int iperf_get_socket_error_code(int sockfd)
@@ -154,9 +178,18 @@ IRAM_ATTR static void socket_recv(int recv_socket, struct sockaddr_storage liste
     buffer = s_iperf_ctrl.buffer;
     want_recv = s_iperf_ctrl.buffer_len;
     while (!s_iperf_ctrl.finish) {
-        actual_recv = recvfrom(recv_socket, buffer, want_recv, 0, (struct sockaddr *)&listen_addr, &socklen);
+        /* Use recv() for TCP (connected socket); recvfrom() for UDP. recvfrom() on TCP can cause issues on some stacks (e.g. LWIP). */
+        if (type == IPERF_TRANS_TYPE_TCP) {
+            actual_recv = recv(recv_socket, buffer, want_recv, 0);
+        } else {
+            actual_recv = recvfrom(recv_socket, buffer, want_recv, 0, (struct sockaddr *)&listen_addr, &socklen);
+        }
         if (actual_recv < 0) {
             iperf_show_socket_error_reason(error_log, recv_socket);
+            s_iperf_ctrl.finish = true;
+            break;
+        } else if (actual_recv == 0) {
+            /* TCP peer closed connection normally */
             s_iperf_ctrl.finish = true;
             break;
         } else {
@@ -246,6 +279,8 @@ IRAM_ATTR static void socket_send(int send_socket, struct sockaddr_storage dest_
 }
 
 static int tcp_listen_socket = -1;
+static int tradeoff_listen_socket = -1;
+
 static esp_err_t iperf_run_tcp_server(void)
 {
     int client_socket = -1;
@@ -419,6 +454,194 @@ exit:
     return ret;
 }
 
+/* Tradeoff (alternating bidirectional): send iperf2 header, phase1 send, then accept and phase2 recv */
+static esp_err_t iperf_run_tcp_client_tradeoff(void)
+{
+    int client_socket = -1;
+    int reverse_socket = -1;
+    int err = 0;
+    esp_err_t ret = ESP_OK;
+    struct timeval timeout = { 0 };
+    struct sockaddr_storage dest_addr = { 0 };
+    struct sockaddr_storage listen_addr = { 0 };
+    uint16_t listen_port = s_iperf_ctrl.cfg.listen_port;
+#if IPERF_IPV4_ENABLED
+    struct sockaddr_in dest_addr4 = { 0 };
+    struct sockaddr_in listen_addr4 = { 0 };
+#endif
+#if IPERF_IPV6_ENABLED
+    struct sockaddr_in6 dest_addr6 = { 0 };
+    struct sockaddr_in6 listen_addr6 = { 0 };
+#endif
+
+    /* 1. Create listener for reverse connection (server will connect to our mPort) */
+    if (s_iperf_ctrl.cfg.type == IPERF_IP_TYPE_IPV4) {
+#if IPERF_IPV4_ENABLED
+        listen_addr4.sin_family = AF_INET;
+        listen_addr4.sin_port = htons(listen_port);
+        listen_addr4.sin_addr.s_addr = INADDR_ANY;
+
+        tradeoff_listen_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+        ESP_GOTO_ON_FALSE((tradeoff_listen_socket >= 0), ESP_FAIL, exit, TAG, "tradeoff listen socket create failed: errno %d", errno);
+        int opt = 1;
+        setsockopt(tradeoff_listen_socket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+        err = bind(tradeoff_listen_socket, (struct sockaddr *)&listen_addr4, sizeof(listen_addr4));
+        ESP_GOTO_ON_FALSE((err == 0), ESP_FAIL, exit, TAG, "tradeoff listen bind failed: errno %d", errno);
+        err = listen(tradeoff_listen_socket, 1);
+        ESP_GOTO_ON_FALSE((err == 0), ESP_FAIL, exit, TAG, "tradeoff listen failed: errno %d", errno);
+        socklen_t len = sizeof(listen_addr4);
+        err = getsockname(tradeoff_listen_socket, (struct sockaddr *)&listen_addr4, &len);
+        ESP_GOTO_ON_FALSE((err == 0), ESP_FAIL, exit, TAG, "getsockname failed");
+        listen_port = ntohs(listen_addr4.sin_port);
+        memcpy(&listen_addr, &listen_addr4, sizeof(listen_addr4));
+        ESP_LOGI(TAG, "Tradeoff listener on port %" PRIu16, listen_port);
+#else
+        ESP_GOTO_ON_FALSE(false, ESP_ERR_INVALID_ARG, exit, TAG, "IPv4 not enabled");
+#endif
+    } else {
+#if IPERF_IPV6_ENABLED
+        listen_addr6.sin6_family = AF_INET6;
+        listen_addr6.sin6_port = htons(listen_port);
+        inet6_aton("::", &listen_addr6.sin6_addr);
+
+        tradeoff_listen_socket = socket(AF_INET6, SOCK_STREAM, IPPROTO_IPV6);
+        ESP_GOTO_ON_FALSE((tradeoff_listen_socket >= 0), ESP_FAIL, exit, TAG, "tradeoff listen socket create failed: errno %d", errno);
+        int opt = 1;
+        setsockopt(tradeoff_listen_socket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+        setsockopt(tradeoff_listen_socket, IPPROTO_IPV6, IPV6_V6ONLY, &opt, sizeof(opt));
+        err = bind(tradeoff_listen_socket, (struct sockaddr *)&listen_addr6, sizeof(listen_addr6));
+        ESP_GOTO_ON_FALSE((err == 0), ESP_FAIL, exit, TAG, "tradeoff listen bind failed: errno %d", errno);
+        err = listen(tradeoff_listen_socket, 1);
+        ESP_GOTO_ON_FALSE((err == 0), ESP_FAIL, exit, TAG, "tradeoff listen failed: errno %d", errno);
+        socklen_t len = sizeof(listen_addr6);
+        err = getsockname(tradeoff_listen_socket, (struct sockaddr *)&listen_addr6, &len);
+        ESP_GOTO_ON_FALSE((err == 0), ESP_FAIL, exit, TAG, "getsockname failed");
+        listen_port = ntohs(listen_addr6.sin6_port);
+        memcpy(&listen_addr, &listen_addr6, sizeof(listen_addr6));
+        ESP_LOGI(TAG, "Tradeoff listener on port %" PRIu16, listen_port);
+#else
+        ESP_GOTO_ON_FALSE(false, ESP_ERR_INVALID_ARG, exit, TAG, "IPv6 not enabled");
+#endif
+    }
+
+    /* 2. Connect to server */
+    if (s_iperf_ctrl.cfg.type == IPERF_IP_TYPE_IPV6) {
+#if IPERF_IPV6_ENABLED
+        client_socket = socket(AF_INET6, SOCK_STREAM, IPPROTO_IPV6);
+        ESP_GOTO_ON_FALSE((client_socket >= 0), ESP_FAIL, exit, TAG, "Unable to create socket: errno %d", errno);
+        inet6_aton(s_iperf_ctrl.cfg.destination_ip6, &dest_addr6.sin6_addr);
+        dest_addr6.sin6_family = AF_INET6;
+        dest_addr6.sin6_port = htons(s_iperf_ctrl.cfg.dport);
+        err = connect(client_socket, (struct sockaddr *)&dest_addr6, sizeof(struct sockaddr_in6));
+        ESP_GOTO_ON_FALSE((err == 0), ESP_FAIL, exit, TAG, "Socket unable to connect: errno %d", errno);
+        memcpy(&dest_addr, &dest_addr6, sizeof(dest_addr6));
+#else
+        ESP_GOTO_ON_FALSE(false, ESP_ERR_INVALID_ARG, exit, TAG, "Invalid iperf address type!");
+#endif
+    } else {
+#if IPERF_IPV4_ENABLED
+        client_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+        ESP_GOTO_ON_FALSE((client_socket >= 0), ESP_FAIL, exit, TAG, "Unable to create socket: errno %d", errno);
+        dest_addr4.sin_family = AF_INET;
+        dest_addr4.sin_port = htons(s_iperf_ctrl.cfg.dport);
+        dest_addr4.sin_addr.s_addr = s_iperf_ctrl.cfg.destination_ip4;
+        err = connect(client_socket, (struct sockaddr *)&dest_addr4, sizeof(struct sockaddr_in));
+        ESP_GOTO_ON_FALSE((err == 0), ESP_FAIL, exit, TAG, "Socket unable to connect: errno %d", errno);
+        memcpy(&dest_addr, &dest_addr4, sizeof(dest_addr4));
+#else
+        ESP_GOTO_ON_FALSE(false, ESP_ERR_INVALID_ARG, exit, TAG, "Invalid iperf address type!");
+#endif
+    }
+    timeout.tv_sec = IPERF_SOCKET_TCP_TX_TIMEOUT;
+    setsockopt(client_socket, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
+
+    /* 3. Send iperf2 client_hdr_v1 (HEADER_VERSION1, no RUN_NOW = tradeoff) */
+    {
+        iperf2_client_hdr_v1_t hdr;
+        uint32_t buf_len = s_iperf_ctrl.buffer_len;
+        uint32_t time_sec = s_iperf_ctrl.cfg.time;
+        memset(&hdr, 0, sizeof(hdr));
+        hdr.flags = htonl(IPERF2_HEADER_VERSION1);  /* no RUN_NOW => tradeoff */
+        hdr.numThreads = htonl(1);
+        hdr.mPort = htonl((int32_t)listen_port);
+        hdr.mBufLen = htonl((int32_t)buf_len);
+        hdr.mWinBand = 0;
+        /* time mode: negative mAmount; iperf2 uses mAmount in 10ms units (mAmount/100 = seconds) */
+        hdr.mAmount = htonl(-(int32_t)(time_sec * 100));
+
+        int sent = send(client_socket, &hdr, IPERF2_CLIENT_HDR_V1_SIZE, 0);
+        if (sent != (int)IPERF2_CLIENT_HDR_V1_SIZE) {
+            ESP_LOGE(TAG, "tradeoff send header failed: %d", sent);
+            ret = ESP_FAIL;
+            goto exit;
+        }
+        ESP_LOGI(TAG, "Tradeoff header sent (port %" PRIu16 ")", listen_port);
+    }
+
+    if (iperf_hook_func) {
+        iperf_hook_func(IPERF_TCP_CLIENT, IPERF_STARTED);
+    }
+    /* 4. Phase 1: client -> server */
+    socket_send(client_socket, dest_addr, IPERF_TRANS_TYPE_TCP, s_iperf_ctrl.cfg.bw_lim);
+
+    if (client_socket != -1) {
+        shutdown(client_socket, 0);
+        close(client_socket);
+        client_socket = -1;
+        ESP_LOGI(TAG, "TCP client phase1 done, waiting for reverse connection...");
+    }
+    if (iperf_hook_func) {
+        iperf_hook_func(IPERF_TCP_CLIENT, IPERF_STOPPED);
+    }
+
+    /* 5. Accept reverse connection from server (server runs then connects back) */
+    timeout.tv_sec = (int)s_iperf_ctrl.cfg.time + 30;
+    setsockopt(tradeoff_listen_socket, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+    socklen_t addr_len = sizeof(struct sockaddr_storage);
+    reverse_socket = accept(tradeoff_listen_socket, (struct sockaddr *)&listen_addr, &addr_len);
+    if (reverse_socket < 0) {
+        ESP_LOGE(TAG, "tradeoff accept reverse failed: errno %d", errno);
+        ret = ESP_FAIL;
+        goto exit;
+    }
+    ESP_LOGI(TAG, "Tradeoff reverse connection accepted");
+    timeout.tv_sec = IPERF_SOCKET_RX_TIMEOUT;
+    setsockopt(reverse_socket, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+
+    /*
+     * Phase 2: server -> client (receive).
+     * Duration: Same as Phase 1. We told the iperf2 server the test length in the first packet (mAmount).
+     * The server's reverse client sends for that duration; we just recv until peer closes or error.
+     * Report task uses the same cfg.time/interval, so the printed report matches Phase 2 length.
+     * Do not start report here - socket_recv starts it on first recv to avoid duplicate task.
+     */
+    s_iperf_ctrl.actual_len = 0;
+    s_iperf_ctrl.finish = false;
+    if (iperf_hook_func) {
+        iperf_hook_func(IPERF_TCP_SERVER, IPERF_STARTED);
+    }
+    socket_recv(reverse_socket, listen_addr, IPERF_TRANS_TYPE_TCP);
+    if (iperf_hook_func) {
+        iperf_hook_func(IPERF_TCP_SERVER, IPERF_STOPPED);
+    }
+
+exit:
+    if (reverse_socket != -1) {
+        close(reverse_socket);
+    }
+    if (client_socket != -1) {
+        shutdown(client_socket, 0);
+        close(client_socket);
+    }
+    if (tradeoff_listen_socket != -1) {
+        shutdown(tradeoff_listen_socket, 0);
+        close(tradeoff_listen_socket);
+        tradeoff_listen_socket = -1;
+    }
+    s_iperf_ctrl.finish = true;
+    return ret;
+}
+
 static esp_err_t iperf_run_udp_server(void)
 {
     int listen_socket = -1;
@@ -566,6 +789,8 @@ static void iperf_task_traffic(void *arg)
         iperf_run_udp_client();
     } else if (iperf_is_udp_server()) {
         iperf_run_udp_server();
+    } else if (iperf_is_tcp_client_tradeoff()) {
+        iperf_run_tcp_client_tradeoff();
     } else if (iperf_is_tcp_client()) {
         iperf_run_tcp_client();
     } else {
@@ -597,7 +822,7 @@ static uint32_t iperf_get_buffer_len(void)
 #endif
     } else if (iperf_is_udp_server()) {
         return IPERF_DEFAULT_UDP_RX_LEN;
-    } else if (iperf_is_tcp_client()) {
+    } else if (iperf_is_tcp_client() || iperf_is_tcp_client_tradeoff()) {
         return (s_iperf_ctrl.cfg.len_send_buf == 0 ? IPERF_DEFAULT_TCP_TX_LEN : s_iperf_ctrl.cfg.len_send_buf);
     } else {
         return IPERF_DEFAULT_TCP_RX_LEN;
@@ -646,7 +871,14 @@ esp_err_t iperf_stop(void)
     if (tcp_listen_socket != -1) {
         shutdown(tcp_listen_socket, 0);
         close(tcp_listen_socket);
+        tcp_listen_socket = -1;
         ESP_LOGD(TAG, "TCP listen socket is closed.");
+    }
+    if (tradeoff_listen_socket != -1) {
+        shutdown(tradeoff_listen_socket, 0);
+        close(tradeoff_listen_socket);
+        tradeoff_listen_socket = -1;
+        ESP_LOGD(TAG, "Tradeoff listen socket is closed.");
     }
     if (g_iperf_is_running) {
         s_iperf_ctrl.finish = true;

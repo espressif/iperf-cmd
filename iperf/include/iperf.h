@@ -41,6 +41,8 @@ extern "C" {
 #define IPERF_FLAG_SERVER (1 << 1)
 #define IPERF_FLAG_TCP (1 << 2)
 #define IPERF_FLAG_UDP (1 << 3)
+/** Tradeoff (alternating bidirectional) mode: client sends first, then receives from server */
+#define IPERF_FLAG_TRADEOFF (1 << 4)
 
 #define IPERF_DEFAULT_PORT 5001
 #define IPERF_DEFAULT_INTERVAL 3
@@ -96,6 +98,7 @@ typedef struct {
     uint32_t time;         /**< total send time in secs */
     uint16_t len_send_buf; /**< send buffer length in bytes */
     int32_t bw_lim;        /**< bandwidth limit in Mbits/s */
+    uint16_t listen_port;  /**< for tradeoff: port to listen for reverse connection (0 = use same as server port) */
 } iperf_cfg_t;
 
 /**

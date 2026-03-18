@@ -36,6 +36,8 @@ typedef struct {
     struct arg_int *time;
     struct arg_int *bw_limit;
     struct arg_str *format;
+    struct arg_lit *tradeoff;   /* -r reverse/tradeoff (alternating bidirectional) */
+    struct arg_int *listenport; /* -L listen port for reverse connection */
     struct arg_lit *abort;
     struct arg_end *end;
 } iperf_args_t;
@@ -91,12 +93,25 @@ static int cmd_do_iperf(int argc, char **argv)
             cfg.destination_ip4 = esp_ip4addr_aton(iperf_args.ip->sval[0]);
         }
 #endif
+        /* -r tradeoff (alternating bidirectional), TCP only; compatible with iperf2 server */
+        if (iperf_args.tradeoff->count > 0) {
+            cfg.flag |= IPERF_FLAG_TRADEOFF;
+        }
+        if (iperf_args.listenport->count > 0) {
+            cfg.listen_port = (uint16_t)iperf_args.listenport->ival[0];
+        } else {
+            cfg.listen_port = 0;  /* ephemeral or server port */
+        }
     }
 
     if (iperf_args.udp->count == 0) {
         cfg.flag |= IPERF_FLAG_TCP;
     } else {
         cfg.flag |= IPERF_FLAG_UDP;
+        if (cfg.flag & IPERF_FLAG_TRADEOFF) {
+            cfg.flag &= ~IPERF_FLAG_TRADEOFF;
+            ESP_LOGW(APP_TAG, "tradeoff (-r) is TCP only, ignored for UDP");
+        }
     }
 
     if (iperf_args.length->count == 0) {
@@ -196,6 +211,8 @@ esp_err_t iperf_cmd_register_iperf(void)
     iperf_args.time = arg_int0("t", "time", "<time>", "time in seconds to transmit for (default 10 secs)");
     iperf_args.bw_limit = arg_int0("b", "bandwidth", "<bandwidth>", "bandwidth to send at in Mbits/sec");
     iperf_args.format = arg_str0("f", "format", "<format>", "'k' = Kbits/sec 'm' = Mbits/sec");
+    iperf_args.tradeoff = arg_lit0("r", "reverse", "tradeoff mode: client sends then receives (iperf2 -r compatible)");
+    iperf_args.listenport = arg_int0("L", "listenport", "<port>", "listen port for reverse connection (tradeoff mode)");
     /* abort is not an official option */
     iperf_args.abort = arg_lit0(NULL, "abort", "abort running iperf");
     iperf_args.end = arg_end(1);
