@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2024-2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2024-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -195,36 +195,40 @@ IRAM_ATTR static esp_err_t iperf_client_loop(iperf_instance_data_t *iperf_instan
     uint32_t* pkt_id_p = (uint32_t *) iperf_instance->socket_info.buffer;
     bool is_started = false;
 
-    // we don't clear count on exit so if Tx was delayed by printing report, we execute with shorter period next time and so
-    // can catch up the delay
-    while (iperf_instance->timers.tx_timer == NULL || ulTaskNotifyTake(pdFALSE, portMAX_DELAY) > 0) {
+    uint32_t pending_tx_count = 0;
+    while (iperf_instance->timers.tx_timer == NULL || (pending_tx_count = ulTaskNotifyTake(pdTRUE, portMAX_DELAY)) > 0) {
         if (!iperf_instance->is_running) {
             break;
         }
-        *pkt_id_p = htonl(pkt_cnt++); // datagrams need to be sequentially numbered
-        int actual_send = sendto(iperf_instance->socket, iperf_instance->socket_info.buffer, want_send,
-                                 0, (struct sockaddr *) &iperf_instance->socket_info.target_addr, addr_len);
-        if (actual_send != want_send && iperf_instance->is_running) {
-            if (iperf_instance->flags & IPERF_FLAG_UDP) {
-                // ENOMEM & ENOBUFS is expected under heavy load => do not print it
-                if ((errno != ENOMEM) && (errno != ENOBUFS)) {
+        if (pending_tx_count > IPERF_CLIENT_PENDING_TX_BURST) {
+            pending_tx_count = IPERF_CLIENT_PENDING_TX_BURST;
+        }
+        while (pending_tx_count--) {
+            *pkt_id_p = htonl(pkt_cnt++); // datagrams need to be sequentially numbered
+            int actual_send = sendto(iperf_instance->socket, iperf_instance->socket_info.buffer, want_send,
+                                    0, (struct sockaddr *) &iperf_instance->socket_info.target_addr, addr_len);
+            if (actual_send != want_send && iperf_instance->is_running) {
+                if (iperf_instance->flags & IPERF_FLAG_UDP) {
+                    // ENOMEM & ENOBUFS is expected under heavy load => do not print it
+                    if ((errno != ENOMEM) && (errno != ENOBUFS)) {
+                        iperf_show_socket_error_reason(iperf_instance, error_log);
+                        ret = ESP_FAIL;
+                        goto err;
+                    }
+                } else if (iperf_instance->flags & IPERF_FLAG_TCP) {
                     iperf_show_socket_error_reason(iperf_instance, error_log);
                     ret = ESP_FAIL;
                     goto err;
                 }
-            } else if (iperf_instance->flags & IPERF_FLAG_TCP) {
-                iperf_show_socket_error_reason(iperf_instance, error_log);
-                ret = ESP_FAIL;
-                goto err;
-            }
-        } else {
-            atomic_fetch_add(&(iperf_instance->period_data_passed), actual_send);
-            if (!is_started) {
-                iperf_state_action(IPERF_STARTED, iperf_instance);
-                is_started = true;
+            } else {
+                atomic_fetch_add(&(iperf_instance->period_data_passed), actual_send);
+                if (!is_started) {
+                    iperf_state_action(IPERF_STARTED, iperf_instance);
+                    is_started = true;
+                }
             }
         }
-    };
+    }
 err:
     if (is_started) {
         iperf_state_action(IPERF_STOPPED, iperf_instance);

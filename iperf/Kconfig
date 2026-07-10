@@ -76,4 +76,19 @@ menu "Iperf"
            Not recommended to set the value too small due to udp does not support fragmentation.
            default smaller for chips if psram is not enabled.
 
+    config IPERF_DEF_CLIENT_PENDING_TX_BURST
+        int "Bandwidth-limited client: max packets per catch-up (when pacing runs late)"
+        default 3
+        range 1 100
+        help
+           When a bandwidth limit is set, the client paces sends with a periodic timer. If the
+           traffic task is not scheduled for a while (for example while the report task prints
+           statistics or the CPU is busy elsewhere), several timer periods can stack up before
+           the next send. This option caps how many packets may be sent in one pass when
+           catching up, so a delayed run does not turn into an unbounded burst.
+
+           Lower values keep bursts smaller under load; higher values let the client recover
+           average rate faster after a delay, but can stress network buffers and trigger ENOMEM
+           on some setups even when the configured bandwidth is modest.
+
 endmenu
