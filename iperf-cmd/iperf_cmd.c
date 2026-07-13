@@ -5,6 +5,8 @@
  */
 #include <stdio.h>
 #include <string.h>
+#include <stdbool.h>
+#include <stdint.h>
 #include <inttypes.h>
 // #include "esp_idf_version.h"
 #include "esp_log.h"
@@ -18,6 +20,8 @@
 #define APP_TAG "IPERF"
 #endif
 
+extern esp_err_t esp_wifi_internal_set_adapt_iperf(bool enable);
+
 typedef struct {
     struct arg_str *ip;
     struct arg_lit *server;
@@ -29,6 +33,7 @@ typedef struct {
     struct arg_int *time;
     struct arg_int *bw_limit;
     struct arg_str *format;
+    struct arg_lit *adapt;
     struct arg_lit *abort;
     struct arg_end *end;
 } iperf_args_t;
@@ -47,6 +52,12 @@ static int cmd_do_iperf(int argc, char **argv)
     if (iperf_args.abort->count != 0) {
         iperf_stop();
         return 0;
+    }
+
+    if (iperf_args.adapt->count != 0) {
+        esp_wifi_internal_set_adapt_iperf(true);
+    } else {
+        esp_wifi_internal_set_adapt_iperf(false);
     }
 
     if (g_iperf_is_running) {
@@ -168,6 +179,8 @@ esp_err_t app_register_iperf_commands(void)
     iperf_args.time = arg_int0("t", "time", "<time>", "time in seconds to transmit for (default 10 secs)");
     iperf_args.bw_limit = arg_int0("b", "bandwidth", "<bandwidth>", "bandwidth to send at in Mbits/sec");
     iperf_args.format = arg_str0("f", "format", "<format>", "'k' = Kbits/sec 'm' = Mbits/sec");
+    /* adapt is not an official option, enable CCA adaptation */
+    iperf_args.adapt = arg_lit0(NULL, "adapt", "enable adaptive iperf test");
     /* abort is not an official option */
     iperf_args.abort = arg_lit0(NULL, "abort", "abort running iperf");
     iperf_args.end = arg_end(1);
