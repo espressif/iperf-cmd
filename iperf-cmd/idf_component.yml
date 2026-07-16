@@ -9,6 +9,9 @@ dependencies:
   idf: '>=4.3'
   espressif/iperf:
     version: =0.1.1
+    # Same monorepo: when iperf-cmd is fetched via git, resolve sibling iperf
+    # from the same commit instead of Component Registry.
+    override_path: ../iperf
 examples:
   - path: ../apps/iperf/
 files:

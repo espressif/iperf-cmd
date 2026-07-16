@@ -1,6 +1,6 @@
 version: 0.1.1
 description: Iperf Core Engine
-url: https://github.com/espressif/iperf-cmd/tree/master/iperf
+url: https://github.com/espressif/iperf-cmd/tree/customer/add_parameter_for_iperf/iperf
 repository: https://github.com/espressif/iperf-cmd.git
 documentation: https://iperf.fr/iperf-doc.php
 issues: https://github.com/espressif/iperf-cmd/issues

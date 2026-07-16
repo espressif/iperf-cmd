@@ -30,6 +30,9 @@
 
 #define TAG "iperf"
 
+extern bool esp_wifi_internal_iperf_is_adapt(void);
+extern esp_err_t esp_wifi_internal_set_adapt_iperf(bool enable);
+
 typedef struct {
     iperf_cfg_t cfg;
     bool finish;
@@ -537,6 +540,10 @@ static void iperf_task_traffic(void *arg)
     if (s_iperf_ctrl.buffer) {
         free(s_iperf_ctrl.buffer);
         s_iperf_ctrl.buffer = NULL;
+    }
+    if (esp_wifi_internal_iperf_is_adapt()) {
+        ESP_LOGI(TAG, "disable adaptive iperf test");
+        esp_wifi_internal_set_adapt_iperf(false);
     }
     ESP_LOGI(TAG, "iperf exit");
     g_iperf_is_running = false;

@@ -56,6 +56,7 @@ static int cmd_do_iperf(int argc, char **argv)
 
     if (iperf_args.adapt->count != 0) {
         esp_wifi_internal_set_adapt_iperf(true);
+        ESP_LOGI(APP_TAG, "enable adaptive iperf test");
     } else {
         esp_wifi_internal_set_adapt_iperf(false);
     }
