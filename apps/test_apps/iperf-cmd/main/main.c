@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2024-2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2024-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -14,6 +14,7 @@
 
 #include "esp_log.h"
 #include "esp_err.h"
+#include "esp_idf_version.h"
 #include "esp_console.h"
 #include "esp_netif.h"
 
@@ -42,11 +43,15 @@ void app_main(void)
 
     esp_console_repl_t *repl = NULL;
     esp_console_repl_config_t repl_config = ESP_CONSOLE_REPL_CONFIG_DEFAULT();
-    esp_console_dev_uart_config_t uart_config = ESP_CONSOLE_DEV_UART_CONFIG_DEFAULT();
     repl_config.prompt = "iperf>";
     repl_config.max_history_len = 1;
     repl_config.task_priority = 2;
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(6, 1, 0)
+    ESP_ERROR_CHECK(esp_console_new_repl_stdio(&repl_config, &repl));
+#else
+    esp_console_dev_uart_config_t uart_config = ESP_CONSOLE_DEV_UART_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_console_new_repl_uart(&uart_config, &repl_config, &repl));
+#endif
 
     /* Register iperf command */
     ESP_ERROR_CHECK(iperf_cmd_register_iperf());
