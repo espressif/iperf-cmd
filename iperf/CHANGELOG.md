@@ -1,5 +1,11 @@
 # Changelog
 
+## [v1.0.3](https://github.com/espressif/iperf-cmd/releases/tag/v1.0.3)
+
+### Features
+
+- added limit of max packets per catch-up ([3cb786bd](https://github.com/espressif/iperf-cmd/commit/3cb786bd))
+
 ## [v1.0.2](https://github.com/espressif/iperf-cmd/releases/tag/v1.0.2)
 
 ### Features

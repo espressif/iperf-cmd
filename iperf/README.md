@@ -16,6 +16,6 @@ This repository contains a basic iperf core engine.
   ```yaml
   dependencies:
     espressif/iperf:
-      version: "^1.0.2"
+      version: "^1.0.3"
   ```
 - For more details refer [IDF Component Manager](https://docs.espressif.com/projects/idf-component-manager/en/latest/)
