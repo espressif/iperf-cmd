@@ -27,6 +27,7 @@
 | Type | Name |
 | ---: | :--- |
 | define  | [**IPERF\_ALL\_INSTANCES\_ID**](#define-iperf_all_instances_id)  (-1)<br>_Special ID used to perform actions on all running instances._ |
+| define  | [**IPERF\_CLIENT\_PENDING\_TX\_BURST**](#define-iperf_client_pending_tx_burst)  CONFIG\_IPERF\_DEF\_CLIENT\_PENDING\_TX\_BURST<br> |
 | define  | [**IPERF\_DEFAULT\_CONFIG\_CLIENT**](#define-iperf_default_config_client) (proto, ip) <br>_Default config to run iperf in client mode._ |
 | define  | [**IPERF\_DEFAULT\_CONFIG\_SERVER**](#define-iperf_default_config_server) (proto, ip) <br>_Default config to run iperf in server mode._ |
 | define  | [**IPERF\_DEFAULT\_INTERVAL**](#define-iperf_default_interval)  3<br> |
@@ -192,6 +193,12 @@ This macro can be passed to APIs that consume instance IDs to indicate that the 
 **Note:**
 
 Not all APIs support this special ID. Refer to the specific API documentation to determine whether this feature is supported.
+### define `IPERF_CLIENT_PENDING_TX_BURST`
+
+```c
+#define IPERF_CLIENT_PENDING_TX_BURST CONFIG_IPERF_DEF_CLIENT_PENDING_TX_BURST
+```
+
 ### define `IPERF_DEFAULT_CONFIG_CLIENT`
 
 _Default config to run iperf in client mode._
@@ -523,7 +530,7 @@ _Structure of data for iperf report._
 
 Variables:
 
--  union iperf\_report\_t::@0 @1  
+-  anonymous union @1  
 
 -  [**iperf\_connect\_info\_report\_t**](#struct-iperf_connect_info_report_t) connect_info  <br>connect info report for report type: PCONNECT\_INFO
 

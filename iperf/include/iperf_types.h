@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2025-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -71,7 +71,7 @@ typedef enum {
  * @brief Structure of data for iperf report traffic data
  *
  */
- typedef struct {
+typedef struct {
     uint32_t period_start_sec;  /**< period start time since iperf has started */
     uint32_t end_sec;  /**< report data end time since iperf has started */
     double period_bytes;  /**< data transferred in bytes within this period */
@@ -92,7 +92,7 @@ typedef struct {
  * @brief Structure of data for iperf report
  *
  */
- typedef struct {
+typedef struct {
     iperf_id_t instance_id;  /**< iperf instance id */
     iperf_report_type_t report_type;  /**< iperf report type */
     union {
@@ -104,7 +104,7 @@ typedef struct {
 /**
  * @brief Structure of data for iperf state handler
  */
- typedef struct {
+typedef struct {
     iperf_state_t state;  /**< iperf state */
     iperf_traffic_type_t traffic_type;  /**< iperf traffic iperf */
 } iperf_state_data_t;
@@ -114,10 +114,10 @@ typedef struct {
  */
 typedef void (*iperf_state_handler_func_t)(iperf_id_t instance_id, iperf_state_data_t* data, void* priv);
 
- /**
-  * @brief Iperf Configuration
-  */
- typedef struct {
+/**
+ * @brief Iperf Configuration
+ */
+typedef struct {
      esp_ip_addr_t destination; /**< destination IP */
      esp_ip_addr_t source; /**< source IP */
      iperf_output_format_t format;  /**< output format, bits/sec, Kbits/sec, Mbits/sec */
