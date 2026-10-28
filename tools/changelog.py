@@ -12,6 +12,7 @@ import subprocess
 
 from typing import Dict
 from typing import List
+from typing import Tuple
 
 RELEASE_TAG_BASE_URL = 'https://github.com/espressif/iperf-cmd/releases/tag'
 GITHUB_COMMIT_BASE_URL = 'https://github.com/espressif/iperf-cmd/commit'
@@ -50,13 +51,13 @@ def check_repo(old_tag: str) -> None:
     assert old_tag in ref_tags
 
 
-def iter_commit_messages(git_logs: str) -> List[tuple[str, str]]:
-    """Yield ``(short_hash, message)`` from ``git log --format=%H%n%B%x1e`` output.
+def iter_commit_messages(git_logs: str) -> List[Tuple[str, str]]:
+    """Return ``(short_hash, message)`` pairs from ``git log --format=%H%n%B%x1e`` output.
 
     A record separator is required. Splitting on the word "commit" also cuts
     messages that mention pre-commit.
     """
-    commits: List[tuple[str, str]] = []
+    commits: List[Tuple[str, str]] = []
     for record in git_logs.split('\x1e'):
         text = record.strip()
         if not text:
