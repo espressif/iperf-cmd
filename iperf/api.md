@@ -51,7 +51,7 @@
 | define  | [**IPERF\_REPORT\_TASK\_NAME**](#define-iperf_report_task_name)  "iperf\_report"<br> |
 | define  | [**IPERF\_REPORT\_TASK\_PRIORITY**](#define-iperf_report_task_priority)  CONFIG\_IPERF\_DEF\_REPORT\_TASK\_PRIORITY<br> |
 | define  | [**IPERF\_REPORT\_TASK\_STACK**](#define-iperf_report_task_stack)  CONFIG\_IPERF\_DEF\_REPORT\_TASK\_STACK<br> |
-| define  | [**IPERF\_SOCKET\_ACCEPT\_TIMEOUT**](#define-iperf_socket_accept_timeout)  5<br> |
+| define  | [**IPERF\_SOCKET\_ACCEPT\_TIMEOUT**](#define-iperf_socket_accept_timeout)  CONFIG\_IPERF\_DEF\_SOCKET\_ACCEPT\_TIMEOUT<br> |
 | define  | [**IPERF\_SOCKET\_MAX\_NUM**](#define-iperf_socket_max_num)  CONFIG\_LWIP\_MAX\_SOCKETS<br> |
 | define  | [**IPERF\_SOCKET\_RX\_TIMEOUT**](#define-iperf_socket_rx_timeout)  CONFIG\_IPERF\_DEF\_SOCKET\_RX\_TIMEOUT<br> |
 | define  | [**IPERF\_SOCKET\_TCP\_TX\_TIMEOUT**](#define-iperf_socket_tcp_tx_timeout)  CONFIG\_IPERF\_DEF\_SOCKET\_TCP\_TX\_TIMEOUT<br> |
@@ -382,7 +382,7 @@ _Default config to run iperf in server mode._
 ### define `IPERF_SOCKET_ACCEPT_TIMEOUT`
 
 ```c
-#define IPERF_SOCKET_ACCEPT_TIMEOUT 5
+#define IPERF_SOCKET_ACCEPT_TIMEOUT CONFIG_IPERF_DEF_SOCKET_ACCEPT_TIMEOUT
 ```
 
 ### define `IPERF_SOCKET_MAX_NUM`
@@ -529,8 +529,6 @@ enum iperf_output_format_t {
 _Structure of data for iperf report._
 
 Variables:
-
--  anonymous union @1  
 
 -  [**iperf\_connect\_info\_report\_t**](#struct-iperf_connect_info_report_t) connect_info  <br>connect info report for report type: PCONNECT\_INFO
 
