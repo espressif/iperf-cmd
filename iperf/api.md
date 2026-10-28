@@ -18,7 +18,7 @@
 | ---: | :--- |
 |  void | [**iperf\_default\_report\_output**](#function-iperf_default_report_output) (const [**iperf\_report\_t**](#struct-iperf_report_t) \*report) <br>_Iperf default report output (print) function._ |
 |  esp\_err\_t | [**iperf\_get\_traffic\_report**](#function-iperf_get_traffic_report) (iperf\_id\_t id, [**iperf\_traffic\_report\_t**](#struct-iperf_traffic_report_t) \*report) <br>_Get the current performance report of instance._ |
-|  IPERF\_WEAK\_ATTR void | [**iperf\_report\_output**](#function-iperf_report_output) (const [**iperf\_report\_t**](#struct-iperf_report_t) \*report) <br>_Iperf report output, defaults to_ `iperf_default_report_print` |
+|  IPERF\_WEAK\_ATTR void | [**iperf\_report\_output**](#function-iperf_report_output) (const [**iperf\_report\_t**](#struct-iperf_report_t) \*report) <br>_Iperf report output function._ |
 |  iperf\_id\_t | [**iperf\_start\_instance**](#function-iperf_start_instance) (const [**iperf\_cfg\_t**](#struct-iperf_cfg_t) \*cfg) <br>_Start iperf instance._ |
 |  esp\_err\_t | [**iperf\_stop\_instance**](#function-iperf_stop_instance) (iperf\_id\_t id) <br>_Stop iperf instance._ |
 
@@ -108,7 +108,7 @@ Not thread safe. Recommended to be used only inside `state_handler` callback and
 * ESP\_ERR\_INVALID\_STATE if instance with associated ID was not found
 ### function `iperf_report_output`
 
-_Iperf report output, defaults to_ `iperf_default_report_print`
+_Iperf report output function._
 ```c
 IPERF_WEAK_ATTR void iperf_report_output (
     const iperf_report_t *report
@@ -116,7 +116,7 @@ IPERF_WEAK_ATTR void iperf_report_output (
 ```
 
 
-Outputs bandwidth statistics in the Iperf format, e.g.: "[  3]  3.0- 4.0 sec   128 KBytes  1.05 Mbits/sec".
+Defaults to iperf\_default\_report\_output. Outputs bandwidth statistics in the Iperf format, e.g.: "[  3]  3.0- 4.0 sec   128 KBytes  1.05 Mbits/sec".
 
 
 

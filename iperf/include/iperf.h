@@ -133,8 +133,9 @@ esp_err_t iperf_get_traffic_report(iperf_id_t id, iperf_traffic_report_t *report
 void iperf_default_report_output(const iperf_report_t* report);
 
 /**
-* @brief Iperf report output, defaults to `iperf_default_report_print`
+* @brief Iperf report output function.
 *
+* Defaults to iperf_default_report_output.
 * Outputs bandwidth statistics in the Iperf format, e.g.:
 * "[  3]  3.0- 4.0 sec   128 KBytes  1.05 Mbits/sec".
 *
