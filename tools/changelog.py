@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# SPDX-FileCopyrightText: 2024-2025 Espressif Systems (Shanghai) CO LTD
+# SPDX-FileCopyrightText: 2024-2026 Espressif Systems (Shanghai) CO LTD
 # SPDX-License-Identifier: Apache-2.0
 """
 Update CHANGELOG file
@@ -12,13 +12,12 @@ import subprocess
 
 from typing import Dict
 from typing import List
+from typing import Tuple
 
 RELEASE_TAG_BASE_URL = 'https://github.com/espressif/iperf-cmd/releases/tag'
 GITHUB_COMMIT_BASE_URL = 'https://github.com/espressif/iperf-cmd/commit'
 IPERF_COMPONENT_URL = 'https://components.espressif.com/components/espressif/iperf'
 PROJECT_ROOT = pathlib.Path(__file__).resolve().parents[1]
-CZ_OLD_TAG = os.environ['CZ_PRE_CURRENT_TAG_VERSION']
-CZ_NEW_TAG = os.environ['CZ_PRE_NEW_TAG_VERSION']
 
 CHANGELOG_SECTIONS = {
     'feat': 'Features',
@@ -37,7 +36,7 @@ CHANGELOG_PATTERN = re.compile(rf'({"|".join(CHANGELOG_SECTIONS.keys())})(\([^\)
 COMMIT_PATTERN = re.compile(r'^[0-9a-f]{8}')
 
 
-def check_repo() -> None:
+def check_repo(old_tag: str) -> None:
     """Check current ref tag in repository"""
     subprocess.check_call(
         ['git', 'fetch', '--prune', '--prune-tags', '--force'],
@@ -49,26 +48,47 @@ def check_repo() -> None:
         ['git', 'show-ref', '--tags'],
         cwd=PROJECT_ROOT,
     ).decode()
-    assert CZ_OLD_TAG in ref_tags
+    assert old_tag in ref_tags
 
 
-def update_changelog() -> None:
+def iter_commit_messages(git_logs: str) -> List[Tuple[str, str]]:
+    """Return ``(short_hash, message)`` pairs from ``git log --format=%H%n%B%x1e`` output.
+
+    A record separator is required. Splitting on the word "commit" also cuts
+    messages that mention pre-commit.
+    """
+    commits: List[Tuple[str, str]] = []
+    for record in git_logs.split('\x1e'):
+        text = record.strip()
+        if not text:
+            continue
+        header, sep, message = text.partition('\n')
+        assert sep and COMMIT_PATTERN.match(header)
+        commits.append((header[:8], message))
+    return commits
+
+
+def update_changelog(old_tag: str, new_tag: str) -> None:
     """Update Changelog files in iperf/iperf-cmd from git history"""
     # Update ChangeLog
     for component in ['iperf', 'iperf-cmd']:
         git_logs = subprocess.check_output(
-            # ignore merge commits
-            ['git', 'log', '--no-merges', f'{CZ_OLD_TAG}..HEAD', f'{component}'],
+            # ignore merge commits; separate records so messages can contain "commit"
+            [
+                'git',
+                'log',
+                '--no-merges',
+                '--format=%H%n%B%x1e',
+                f'{old_tag}..HEAD',
+                component,
+            ],
             cwd=PROJECT_ROOT,
         ).decode()
 
         changelogs: Dict[str, List[str]] = {k: [] for k in CHANGELOG_TITLES[::-1]}
         # Get possible changelogs from title and notes.
-        for commit_log in git_logs.split('commit ')[1:]:
-            _commit_match = COMMIT_PATTERN.match(commit_log)
-            assert _commit_match
-            commit = _commit_match.group(0)
-            for match in CHANGELOG_PATTERN.finditer(commit_log):
+        for commit, message in iter_commit_messages(git_logs):
+            for match in CHANGELOG_PATTERN.finditer(message):
                 if match.group(2):
                     _changelog = f'- {match.group(2)}: {match.group(3)} ([{commit}]({GITHUB_COMMIT_BASE_URL}/{commit}))'
                 else:
@@ -76,7 +96,7 @@ def update_changelog() -> None:
                 changelogs[CHANGELOG_SECTIONS[match.group(1)]].append(_changelog)
 
         if component == 'iperf-cmd':
-            _changelog = f'- update dependencies [espressif/iperf]({IPERF_COMPONENT_URL}) to {CZ_NEW_TAG}'
+            _changelog = f'- update dependencies [espressif/iperf]({IPERF_COMPONENT_URL}) to {new_tag}'
             changelogs['Updates'].append(_changelog)
 
         # Update changelog file
@@ -89,11 +109,13 @@ def update_changelog() -> None:
             changelog_data.insert(2, f'### {key}\n\n' + '\n'.join(values) + '\n\n')
             changed = True
         if changed:
-            changelog_data.insert(2, f'## [{CZ_NEW_TAG}]({RELEASE_TAG_BASE_URL}/{CZ_NEW_TAG})\n\n')
+            changelog_data.insert(2, f'## [{new_tag}]({RELEASE_TAG_BASE_URL}/{new_tag})\n\n')
         with open(str(PROJECT_ROOT / component / 'CHANGELOG.md'), 'w', encoding='utf-8') as fw:
             fw.write(''.join(changelog_data))
 
 
 if __name__ == '__main__':
-    check_repo()
-    update_changelog()
+    old_tag = os.environ['CZ_PRE_CURRENT_TAG_VERSION']
+    new_tag = os.environ['CZ_PRE_NEW_TAG_VERSION']
+    check_repo(old_tag)
+    update_changelog(old_tag, new_tag)
