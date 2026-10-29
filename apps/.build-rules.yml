@@ -13,6 +13,9 @@ apps/iperf:
 
 apps/linux_target:
   disable:
+    # Host build still fails on IDF master. Remove this rule once it is fixed.
+    - if: IDF_TARGET == "linux"
+      reason: Temporarily disabled until the linux port builds on IDF master
     - if: IDF_TARGET != "linux"
 
 apps/test_apps:
