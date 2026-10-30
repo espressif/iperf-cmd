@@ -14,6 +14,15 @@ menu "Iperf"
             The value is used for iperf socket TCP tx timeout, iperf will be aborted
             and socket will be closed and shutdown.
 
+    config IPERF_DEF_SOCKET_ACCEPT_TIMEOUT
+        int "iperf TCP server accept timeout in seconds"
+        default 5
+        range 1 86400
+        help
+            How long a TCP server waits in accept() for a client. If no client
+            connects in time, the server stops. iperf --abort cannot interrupt
+            this wait, so 0 (block forever) is not allowed.
+
     config IPERF_DEF_TRAFFIC_TASK_PRIORITY
         int "default iperf traffic task priority"
         default 4
